@@ -56,6 +56,7 @@ namespace Plank {
     DockItem? dock_itself_item;
     uint serialize_item_positions_timer_id = 0U;
     Mutex visible_mutex;
+    bool shutting_down = false;
 
     /**
      * List of all items on this dock
@@ -95,7 +96,6 @@ namespace Plank {
     construct
     {
       launchers_folder = config_folder.get_child ("launchers");
-      Factory.item_factory.launchers_dir = launchers_folder;
 
       items = new Gee.ArrayList<unowned DockItem> ();
       visible_items = new Gee.ArrayList<unowned DockItem> ();
@@ -117,6 +117,50 @@ namespace Plank {
     }
 
     ~DockController () {
+      if (!shutting_down) {
+        prefs.notify["Position"].disconnect (update_visible_elements);
+        prefs.notify["ShowDockItem"].disconnect (update_show_dock_item);
+
+        positions_changed.disconnect (handle_positions_changed);
+        states_changed.disconnect (handle_states_changed);
+        elements_changed.disconnect (handle_elements_changed);
+
+        WindowControl.get_wnck_screen ().window_opened.disconnect (window.update_icon_regions);
+
+        if (serialize_item_positions_timer_id > 0U)
+          Source.remove (serialize_item_positions_timer_id);
+        serialize_item_positions ();
+      }
+
+      items.clear ();
+      visible_items.clear ();
+      new_visible_items.clear ();
+    }
+
+    /**
+     * Stops this dock and tears down its windows, managers and signals.
+     *
+     * The manager graph contains reference cycles (each manager holds the
+     * controller), so a removed dock is never finalized on its own. Dropping
+     * the manager references here breaks those cycles while the windows and
+     * preferences still exist for the destructors to use.
+     */
+    public void shutdown () {
+      if (shutting_down)
+        return;
+
+      shutting_down = true;
+
+      if (serialize_item_positions_timer_id > 0U) {
+        Source.remove (serialize_item_positions_timer_id);
+        serialize_item_positions_timer_id = 0U;
+      }
+      serialize_item_positions ();
+
+      // Stop reacting to our own elements before clearing them: the
+      // elements_changed handler would otherwise animate and reposition a
+      // dock that is about to be destroyed, leaving an unbalanced frame-clock
+      // update behind.
       prefs.notify["Position"].disconnect (update_visible_elements);
       prefs.notify["ShowDockItem"].disconnect (update_show_dock_item);
 
@@ -126,9 +170,45 @@ namespace Plank {
 
       WindowControl.get_wnck_screen ().window_opened.disconnect (window.update_icon_regions);
 
-      if (serialize_item_positions_timer_id > 0U)
-        Source.remove (serialize_item_positions_timer_id);
-      serialize_item_positions ();
+      // Disconnect from providers and Unity while the window still exists
+      clear ();
+
+      // Tear down the hover window before the managers it references
+      if (hover != null) {
+        hover.hide ();
+        hover.destroy ();
+        hover = null;
+      }
+
+      // Stop the renderer's tick callback while the window is still
+      // realized, so it can rebalance the frame clock before GTK unrealizes
+      // the widget.
+      if (renderer != null)
+        renderer.shutdown ();
+
+      // Destroy the window first so its signal connections release the
+      // renderer while the managers its destructor needs are still alive.
+      // Keep the field set: the managers' destructors use the window too.
+      if (window != null) {
+        window.hide ();
+        window.destroy ();
+      }
+
+      // Drop manager references in dependency order; their destructors need
+      // the window and each other, so only clear the window field afterwards.
+      renderer = null;
+      preview_manager = null;
+      drag_manager = null;
+      hide_manager = null;
+      position_manager = null;
+      if (dbus_manager != null) {
+        dbus_manager.shutdown ();
+        dbus_manager = null;
+      }
+      default_provider = null;
+      dock_itself_item = null;
+
+      window = null;
 
       items.clear ();
       visible_items.clear ();
@@ -212,7 +292,7 @@ namespace Plank {
       // assume a first run and pre-populate with launchers
       if (Paths.ensure_directory_exists (launchers_folder)) {
         debug ("Adding default dock items...");
-        Factory.item_factory.make_default_items ();
+        Factory.item_factory.make_default_items (launchers_folder);
         debug ("done.");
       }
 
@@ -224,7 +304,7 @@ namespace Plank {
     void update_show_dock_item () {
       if (prefs.ShowDockItem) {
         if (dock_itself_item == null)
-          dock_itself_item = Factory.item_factory.get_item_for_dock ();
+          dock_itself_item = Factory.item_factory.get_item_for_dock (this);
         if (!internal_elements.contains (dock_itself_item))
           prepend (dock_itself_item);
       } else if (dock_itself_item != null) {
@@ -380,6 +460,9 @@ namespace Plank {
     }
 
     void schedule_serialize_item_positions () {
+      if (shutting_down)
+        return;
+
       if (serialize_item_positions_timer_id > 0U)
         return;
 

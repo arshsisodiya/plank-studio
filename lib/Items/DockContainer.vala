@@ -265,7 +265,9 @@ namespace Plank {
       Logger.verbose ("DockContainer.update_visible_elements ()");
 
       var old_items = new Gee.ArrayList<DockElement> ();
-      old_items.add_all (visible_elements);
+      foreach (var element in visible_elements)
+        if (element != placeholder_item)
+          old_items.add (element);
 
       visible_elements.clear ();
 
@@ -283,6 +285,11 @@ namespace Plank {
       if (visible_elements.size <= 0)
         visible_elements.add (placeholder_item);
 
+      // The placeholder is not a real element, so entering or staying in the
+      // empty state must not look like an element change. Otherwise a
+      // container whose elements were all removed emits elements_changed on
+      // every update, and a handler that calls update_visible_elements again
+      // recurses until the stack overflows.
       if (added_items.size > 0 || removed_items.size > 0)
         elements_changed (added_items, removed_items);
     }

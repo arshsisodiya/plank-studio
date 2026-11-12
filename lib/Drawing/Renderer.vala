@@ -32,6 +32,12 @@ namespace Plank {
     ulong widget_realize_handler_id = 0UL;
     ulong widget_draw_handler_id = 0UL;
 
+    // GTK begins a frame-clock update when the tick callback is added and
+    // ends it when the callback is removed. Animations pause by ending that
+    // update early, so remember the paused state to restore the balance
+    // before the callback goes away.
+    bool frame_paused = false;
+
     /**
      * Creates a new animation renderer.
      */
@@ -47,20 +53,37 @@ namespace Plank {
     }
 
     ~Renderer () {
-      if (timer_id > 0U) {
+      shutdown ();
+
+      // The realize/draw handlers are connected with g_signal_connect_object,
+      // so they are removed automatically when this object is finalized.
+      widget_realize_handler_id = 0UL;
+      widget_draw_handler_id = 0UL;
+    }
+
+    /**
+     * Stops the tick callback while the widget still exists.
+     *
+     * A paused animation has already ended GTK's frame-clock update, so it
+     * has to be restarted for the removal to end it again; otherwise GTK
+     * asserts on an unbalanced update when the widget is unrealized.
+     */
+    public void shutdown () {
+      if (timer_id == 0U)
+        return;
+
+      if (widget.get_realized ()) {
+        unowned Gdk.FrameClock? frame_clock = widget.get_frame_clock ();
+
+        if (frame_paused && frame_clock != null) {
+          frame_clock.begin_updating ();
+          frame_paused = false;
+        }
+
         widget.remove_tick_callback (timer_id);
-        timer_id = 0U;
       }
 
-      if (widget_realize_handler_id > 0UL) {
-        widget.disconnect (widget_realize_handler_id);
-        widget_realize_handler_id = 0UL;
-      }
-
-      if (widget_draw_handler_id > 0UL) {
-        widget.disconnect (widget_draw_handler_id);
-        widget_draw_handler_id = 0UL;
-      }
+      timer_id = 0U;
     }
 
     /**
@@ -105,9 +128,12 @@ namespace Plank {
 
       widget.queue_draw ();
 
-      if (animation_needed (local_frame_time)) {
+      if (animation_needed (local_frame_time) && frame_paused) {
         unowned Gdk.FrameClock? frame_clock = widget.get_frame_clock ();
-        frame_clock.begin_updating ();
+        if (frame_clock != null) {
+          frame_clock.begin_updating ();
+          frame_paused = false;
+        }
       }
     }
 
@@ -121,7 +147,13 @@ namespace Plank {
       if (animation_needed (local_frame_time))
         return true;
 
-      frame_clock.end_updating ();
+      // Pause the frame clock once the animation is over. GTK's own update
+      // is ended here and restarted by animated_draw () when needed again.
+      if (!frame_paused) {
+        frame_clock.end_updating ();
+        frame_paused = true;
+      }
+
       return true;
     }
 

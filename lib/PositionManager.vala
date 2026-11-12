@@ -720,6 +720,9 @@ namespace Plank {
 
       thaw_notify ();
 
+      if (Factory.main != null)
+        Factory.main.relayout_docks ();
+
       // Monitor geometry needs no stability verification: invalid readings
       // never get this far, and only work-area margins can look plausible
       // yet wrong mid-transition, so the update is complete as soon as a
@@ -796,6 +799,15 @@ namespace Plank {
     public int Offset { get; private set; }
 
     /**
+     * The pixel shift currently applied to keep this dock clear of others.
+     */
+    public int CollisionOffset {
+      get {
+        return collision_offset;
+      }
+    }
+
+    /**
      * Theme-based indicator size, scaled by icon size.
      */
     public int IndicatorSize { get; private set; }
@@ -850,6 +862,11 @@ namespace Plank {
      * y position of the dock window.
      */
     int win_y;
+
+    /**
+     * Pixel shift along the dock's edge used to keep it clear of other docks.
+     */
+    int collision_offset;
 
     /**
      * The currently visible height of the dock.
@@ -911,6 +928,9 @@ namespace Plank {
       update_regions ();
 
       thaw_notify ();
+
+      if (Factory.main != null)
+        Factory.main.relayout_docks ();
     }
 
     void update_caches (DockTheme theme) {
@@ -994,6 +1014,9 @@ namespace Plank {
       update_regions ();
 
       thaw_notify ();
+
+      if (Factory.main != null)
+        Factory.main.relayout_docks ();
     }
 
     void prefs_gap_size_changed () {
@@ -1235,64 +1258,12 @@ namespace Plank {
       // width of the items-area of the dock
       items_width = get_items_width (controller.VisibleItems);
 
-      static_dock_region.width = VisibleDockWidth;
-      static_dock_region.height = VisibleDockHeight;
-
-      var xoffset = (DockWidth - static_dock_region.width) / 2;
-      var yoffset = (DockHeight - static_dock_region.height) / 2;
-
-      if (screen_is_composited) {
-        var offset = Offset;
-        xoffset = xoffset + (offset * xoffset) / 100;
-        yoffset = yoffset + (offset * yoffset) / 100;
-
-        switch (Alignment) {
-        default:
-        case Gtk.Align.CENTER:
-        case Gtk.Align.FILL:
-          break;
-        case Gtk.Align.START:
-          if (is_horizontal_dock ()) {
-            xoffset = 0;
-            yoffset = (monitor_geo.height - static_dock_region.height);
-          } else {
-            xoffset = (monitor_geo.width - static_dock_region.width);
-            yoffset = 0;
-          }
-          break;
-        case Gtk.Align.END:
-          if (is_horizontal_dock ()) {
-            xoffset = (monitor_geo.width - static_dock_region.width);
-            yoffset = 0;
-          } else {
-            xoffset = 0;
-            yoffset = (monitor_geo.height - static_dock_region.height);
-          }
-          break;
-        }
-      }
-
-      switch (Position) {
-      default:
-      case Gtk.PositionType.BOTTOM:
-        static_dock_region.x = xoffset;
-        static_dock_region.y = DockHeight - static_dock_region.height;
-        break;
-      case Gtk.PositionType.TOP:
-        static_dock_region.x = xoffset;
-        static_dock_region.y = 0;
-        break;
-      case Gtk.PositionType.LEFT:
-        static_dock_region.y = yoffset;
-        static_dock_region.x = 0;
-        break;
-      case Gtk.PositionType.RIGHT:
-        static_dock_region.y = yoffset;
-        static_dock_region.x = DockWidth - static_dock_region.width;
-        break;
-      }
+      static_dock_region = compute_base_window_region ();
 
       update_dock_position ();
+
+      if (screen_is_composited)
+        apply_collision_to_static_region ();
 
       if (!screen_is_composited
           || old_region.x != static_dock_region.x
@@ -1314,6 +1285,268 @@ namespace Plank {
       } else {
         controller.renderer.animated_draw ();
       }
+    }
+
+    /**
+     * Computes the dock region relative to its window, before collision
+     * avoidance is applied.
+     */
+    Gdk.Rectangle compute_base_window_region () {
+      Gdk.Rectangle region = {};
+      region.width = VisibleDockWidth;
+      region.height = VisibleDockHeight;
+
+      var xoffset = (DockWidth - region.width) / 2;
+      var yoffset = (DockHeight - region.height) / 2;
+
+      if (screen_is_composited) {
+        var offset = Offset;
+        xoffset = xoffset + (offset * xoffset) / 100;
+        yoffset = yoffset + (offset * yoffset) / 100;
+
+        switch (Alignment) {
+        default:
+        case Gtk.Align.CENTER:
+        case Gtk.Align.FILL:
+          break;
+        case Gtk.Align.START:
+          if (is_horizontal_dock ()) {
+            xoffset = 0;
+            yoffset = (monitor_geo.height - region.height);
+          } else {
+            xoffset = (monitor_geo.width - region.width);
+            yoffset = 0;
+          }
+          break;
+        case Gtk.Align.END:
+          if (is_horizontal_dock ()) {
+            xoffset = (monitor_geo.width - region.width);
+            yoffset = 0;
+          } else {
+            xoffset = 0;
+            yoffset = (monitor_geo.height - region.height);
+          }
+          break;
+        }
+      }
+
+      switch (Position) {
+      default:
+      case Gtk.PositionType.BOTTOM:
+        region.x = xoffset;
+        region.y = DockHeight - region.height;
+        break;
+      case Gtk.PositionType.TOP:
+        region.x = xoffset;
+        region.y = 0;
+        break;
+      case Gtk.PositionType.LEFT:
+        region.y = yoffset;
+        region.x = 0;
+        break;
+      case Gtk.PositionType.RIGHT:
+        region.y = yoffset;
+        region.x = DockWidth - region.width;
+        break;
+      }
+
+      return region;
+    }
+
+    /**
+     * Shifts the visible dock region along its edge for composited docks,
+     * where the window itself spans the whole monitor.
+     */
+    void apply_collision_to_static_region () {
+      if (collision_offset == 0)
+        return;
+
+      if (is_horizontal_dock ()) {
+        var x = win_x + static_dock_region.x;
+        var max_x = monitor_geo.x + monitor_geo.width - static_dock_region.width;
+        x = int.max (monitor_geo.x, int.min (max_x, x + collision_offset));
+        static_dock_region.x = x - win_x;
+      } else {
+        var y = win_y + static_dock_region.y;
+        var max_y = monitor_geo.y + monitor_geo.height - static_dock_region.height;
+        y = int.max (monitor_geo.y, int.min (max_y, y + collision_offset));
+        static_dock_region.y = y - win_y;
+      }
+    }
+
+    /**
+     * Shifts the dock window along its edge for non-composited docks.
+     */
+    void apply_collision_to_window () {
+      if (collision_offset == 0)
+        return;
+
+      if (is_horizontal_dock ()) {
+        var max_x = monitor_geo.x + monitor_geo.width - DockWidth;
+        win_x = int.max (monitor_geo.x, int.min (max_x, win_x + collision_offset));
+      } else {
+        var max_y = monitor_geo.y + monitor_geo.height - DockHeight;
+        win_y = int.max (monitor_geo.y, int.min (max_y, win_y + collision_offset));
+      }
+    }
+
+    /**
+     * The dock region in monitor coordinates ignoring collision avoidance.
+     */
+    public Gdk.Rectangle get_base_static_dock_region () {
+      var region = compute_base_window_region ();
+
+      int bx, by;
+      compute_dock_window_position (out bx, out by, Position, Alignment,
+                                    monitor_geo, DockWidth, DockHeight, GapSize, Offset,
+                                    screen_is_composited, is_horizontal_dock (),
+                                    region.width, region.height, false);
+
+      region.x += bx;
+      region.y += by;
+
+      return region;
+    }
+
+    /**
+     * Applies a new collision offset and refreshes the cached regions.
+     */
+    public void set_collision_offset (int offset) {
+      if (collision_offset == offset)
+        return;
+
+      collision_offset = offset;
+      update_regions ();
+    }
+
+    /**
+     * Finds the smallest shift along this dock's edge that keeps it clear of
+     * the already placed docks, staying inside the monitor bounds.
+     *
+     * @param placed regions already occupied by other docks
+     * @param gap the minimum gap to keep between docks
+     * @return the offset to apply through set_collision_offset()
+     */
+    public int resolve_collision_offset (Gee.List<Gdk.Rectangle?> placed, int gap) {
+      Gdk.Rectangle base_region = get_base_static_dock_region ();
+      return compute_collision_offset (base_region, is_horizontal_dock (), monitor_geo, placed, gap);
+    }
+
+    /**
+     * Pure collision-avoidance math, testable in isolation.
+     *
+     * @param base_region the dock's region without any collision offset
+     * @param horizontal whether the dock runs along a horizontal edge
+     * @param monitor the monitor geometry
+     * @param placed regions already occupied by other docks
+     * @param gap the minimum gap to keep between docks
+     * @return the smallest offset along the edge that avoids every placed
+     *         dock, or the offset with the least overlap when none fits
+     */
+    public static int compute_collision_offset (Gdk.Rectangle base_region, bool horizontal,
+                                                Gdk.Rectangle monitor,
+                                                Gee.List<Gdk.Rectangle?> placed, int gap) {
+      var size = horizontal ? base_region.width : base_region.height;
+      var start = horizontal ? base_region.x : base_region.y;
+      var perp_start = horizontal ? base_region.y : base_region.x;
+      var perp_end = perp_start + (horizontal ? base_region.height : base_region.width);
+      var limit_start = horizontal ? monitor.x : monitor.y;
+      var limit_end = limit_start + (horizontal ? monitor.width : monitor.height);
+      var max_start = limit_end - size;
+
+      if (max_start < limit_start)
+        return 0;
+
+      // Pad the other docks so a gap remains between them and this one.
+      // Docks on another edge share no pixels with this one, so only those
+      // overlapping across the edge can collide with it.
+      var occupied = new Gee.ArrayList<Gdk.Rectangle?> ();
+      foreach (Gdk.Rectangle? boxed in placed) {
+        if (boxed == null)
+          continue;
+
+        Gdk.Rectangle other = boxed;
+        var other_perp_start = horizontal ? other.y : other.x;
+        var other_perp_end = other_perp_start + (horizontal ? other.height : other.width);
+        if (perp_start >= other_perp_end || perp_end <= other_perp_start)
+          continue;
+
+        var other_start = horizontal ? other.x : other.y;
+        var other_size = horizontal ? other.width : other.height;
+        Gdk.Rectangle interval = { other_start - gap, 0, other_size + 2 * gap, 0 };
+        occupied.add (interval);
+      }
+
+      if (!interval_collides (start, size, occupied))
+        return 0;
+
+      var candidates = new Gee.ArrayList<int> ();
+      candidates.add (start);
+      foreach (Gdk.Rectangle? boxed in occupied) {
+        if (boxed == null)
+          continue;
+
+        Gdk.Rectangle interval = boxed;
+        candidates.add (interval.x - size);
+        candidates.add (interval.x + interval.width);
+      }
+
+      var best_start = int.max (limit_start, int.min (max_start, start));
+      var best_distance = int.MAX;
+      var fallback_start = best_start;
+      var fallback_overlap = int.MAX;
+
+      foreach (var candidate in candidates) {
+        var clamped = int.max (limit_start, int.min (max_start, candidate));
+        var overlap = interval_overlap (clamped, size, occupied);
+
+        if (overlap == 0) {
+          var distance = clamped > start ? clamped - start : start - clamped;
+          if (distance < best_distance) {
+            best_distance = distance;
+            best_start = clamped;
+          }
+        } else if (overlap < fallback_overlap) {
+          // Docks too long to fit side by side still move to the position
+          // where they overlap the least
+          fallback_overlap = overlap;
+          fallback_start = clamped;
+        }
+      }
+
+      if (best_distance == int.MAX)
+        best_start = fallback_start;
+
+      return best_start - start;
+    }
+
+    static int interval_overlap (int start, int size, Gee.List<Gdk.Rectangle?> occupied) {
+      var overlap = 0;
+      foreach (Gdk.Rectangle? boxed in occupied) {
+        if (boxed == null)
+          continue;
+
+        Gdk.Rectangle interval = boxed;
+        var from = int.max (start, interval.x);
+        var to = int.min (start + size, interval.x + interval.width);
+        if (to > from)
+          overlap += to - from;
+      }
+
+      return overlap;
+    }
+
+    static bool interval_collides (int start, int size, Gee.List<Gdk.Rectangle?> occupied) {
+      foreach (Gdk.Rectangle? boxed in occupied) {
+        if (boxed == null)
+          continue;
+
+        Gdk.Rectangle interval = boxed;
+        if (start < interval.x + interval.width && start + size > interval.x)
+          return true;
+      }
+
+      return false;
     }
 
     /**
@@ -1972,6 +2205,9 @@ namespace Plank {
                                     screen_is_composited, is_horizontal_dock (),
                                     static_dock_region.width, static_dock_region.height,
                                     hidden);
+
+      if (!screen_is_composited)
+        apply_collision_to_window ();
     }
 
     /**

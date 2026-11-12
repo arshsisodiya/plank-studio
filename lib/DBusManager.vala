@@ -91,7 +91,11 @@ namespace Plank
 				return true;
 			}
 			
-			return provider.remove (item);
+			// Removing a file or folder has to delete its .dockitem file as
+			// well, otherwise the launchers folder would re-add it on the next
+			// start. The provider drops it in response to Prefs.deleted.
+			item.delete ();
+			return true;
 		}
 		
 		public int get_count ()
@@ -220,14 +224,34 @@ namespace Plank
 			}
 		}
 		
-		~DBusManager ()
+		/**
+		 * Removes this dock's exported objects and signal subscriptions.
+		 *
+		 * A removed dock can be enabled again under the same id, and the
+		 * connection refuses to export the Items interface twice, so the
+		 * teardown must not wait for the destructor: the DBusItems object it
+		 * unregisters holds the controller, which keeps this manager's
+		 * reference cycle alive.
+		 */
+		public void shutdown ()
 		{
 			if (connection != null) {
-				if (dbus_items_signal_id > 0U)
+				if (dbus_items_signal_id > 0U) {
 					connection.unregister_object (dbus_items_signal_id);
-				if (dbus_client_ping_signal_id > 0U)
+					dbus_items_signal_id = 0U;
+				}
+				if (dbus_client_ping_signal_id > 0U) {
 					connection.signal_unsubscribe (dbus_client_ping_signal_id);
+					dbus_client_ping_signal_id = 0U;
+				}
 			}
+
+			connection = null;
+		}
+
+		~DBusManager ()
+		{
+			shutdown ();
 		}
 		
 		[CCode (instance_pos = -1)]

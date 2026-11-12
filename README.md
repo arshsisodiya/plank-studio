@@ -19,6 +19,7 @@ Like its predecessor, Plank Reloaded aims to be the simplest dock on the planet,
 - Fixed Restrict to Workspace so applications only show up on their active workspace
 - Max zoom increased to 400%
 - Floating dock support with configurable gap from the screen edge
+- Multiple docks in a single instance, each with its own settings, theme, position and items
 - Multi-monitor support with active display tracking
 - Window previews on hover, with click to focus, close buttons, and adjustable delay and size
 - Comprehensive docklet improvements:
@@ -393,17 +394,19 @@ Add Plank Reloaded to your desktop environment's startup applications. The comma
 <details markdown="1">
 <summary><strong>Does Plank Reloaded work with multiple monitors?</strong></summary>
 
-Yes, Plank Reloaded works with multiple monitors. To have a dock on each monitor, you need to launch multiple instances with different names:
+Yes. A single Plank Reloaded instance can run several docks, each with its own settings, theme, position and items. Open **Preferences → Docks** to add, rename, duplicate, enable or disable docks, and use **Items** to manage the files and folders on the selected dock.
+
+Each dock is placed independently. Docks that would overlap on the same screen edge are moved apart automatically while **Keep docks from overlapping** is enabled. Every dock remembers its position across restarts.
+
+Separate processes launched with different names still work as before:
 
 ```bash
 # Launch first dock
 plank
 
-# Launch second dock
+# Launch second dock in its own process
 plank -n dock2
 ```
-
-Each instance can be configured independently.
 
 #### Moving Docks Between Monitors
 

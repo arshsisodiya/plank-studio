@@ -75,8 +75,6 @@ namespace Plank {
     bool is_first_frame = true;
     bool zoom_changed = false;
 
-    ulong gtk_theme_name_changed_handler_id = 0UL;
-
     double dynamic_animation_offset = 0.0;
 
     Gee.ArrayList<unowned DockItem> current_items;
@@ -104,7 +102,8 @@ namespace Plank {
 #endif
       controller.prefs.notify.connect (prefs_changed);
 
-      gtk_theme_name_changed_handler_id = Gtk.Settings.get_default ().notify["gtk-theme-name"].connect (gtk_theme_name_changed);
+      // Removed automatically with this object; do not disconnect manually
+      Gtk.Settings.get_default ().notify["gtk-theme-name"].connect (gtk_theme_name_changed);
 
       load_theme ();
     }
@@ -128,17 +127,9 @@ namespace Plank {
         reset_position_manager_timer_id = 0U;
       }
 
-      controller.prefs.notify.disconnect (prefs_changed);
-      theme.notify.disconnect (theme_changed);
-
-      if (gtk_theme_name_changed_handler_id > 0UL) {
-        SignalHandler.disconnect (Gtk.Settings.get_default (), gtk_theme_name_changed_handler_id);
-        gtk_theme_name_changed_handler_id = 0UL;
-      }
-
-      controller.hide_manager.notify["Hidden"].disconnect (hidden_changed);
-      controller.hide_manager.notify["Hovered"].disconnect (hovered_changed);
-      controller.window.notify["HoveredItem"].disconnect (animated_draw);
+      // All signal handlers are connected with g_signal_connect_object and are
+      // removed automatically when this object is finalized, so disconnecting
+      // them here would fail once teardown starts.
     }
 
     void prefs_changed (Object prefs, ParamSpec prop) {

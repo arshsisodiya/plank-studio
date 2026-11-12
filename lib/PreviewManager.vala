@@ -308,8 +308,8 @@ namespace Plank {
       foreach (var window in windows) {
         var xid = window.get_xid ();
 
-        // A window's last thumbnail shows until it is captured again, if it
-        // is on screen
+        // A window's last thumbnail shows until it is captured again,
+        // including while it is minimized
         var thumbnail = (composited ? thumbnails[xid] : null);
 
         // The item's themed icon, loaded once, is sharper than the windows'
@@ -333,7 +333,7 @@ namespace Plank {
       return entries;
     }
 
-    // Captures the next window with a tile that is on screen, keeps its
+    // Captures the next window with a tile that can be captured, keeps its
     // thumbnail and puts it on the tile, one window per pass of the main
     // loop so the popup stays responsive
     bool capture_next () {
@@ -343,8 +343,8 @@ namespace Plank {
         var window = pending_captures.remove_at (0);
 
         // A window that closed meanwhile is gone from Wnck, which
-        // is_on_screen () checks first
-        if (!is_on_screen (window, workspace))
+        // can_capture () checks first
+        if (!can_capture (window, workspace))
           continue;
 
         var thumbnail = capture (window, thumbnails_width, thumbnails_height);
@@ -370,15 +370,16 @@ namespace Plank {
       pending_captures.clear ();
     }
 
-    // Whether a window is on screen, where its contents can be captured:
-    // neither minimized nor shaded, and on the current workspace. Window
-    // managers with their own hidden state set it only for minimized
-    // windows, so Wnck's HIDDEN doesn't cover shaded ones there
-    static bool is_on_screen (Bamf.Window window, Wnck.Workspace? workspace) {
+    // Whether a window's contents can be captured now: on the current
+    // workspace and not shaded. Minimized windows are included: compositing
+    // window managers often keep them mapped with their last contents, and
+    // get_window_thumbnail () returns null when they are not viewable, so
+    // the cached thumbnail or icon stays in place
+    static bool can_capture (Bamf.Window window, Wnck.Workspace? workspace) {
       unowned Wnck.Window? wnck_window = WindowControl.get_wnck_window (window.get_xid ());
 
       return (wnck_window != null && workspace != null && !wnck_window.is_shaded ()
-              && WindowControl.window_is_visible_on_workspace (wnck_window, workspace));
+              && WindowControl.window_is_on_workspace (wnck_window, workspace));
     }
 
     static Gdk.Pixbuf? capture (Bamf.Window window, int max_width, int max_height) {

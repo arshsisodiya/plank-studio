@@ -22,6 +22,15 @@ namespace Plank {
    * Contains all preferences for docks.
    */
   public class DockPreferences : Plank.Settings {
+    /**
+     * The stable internal id of this dock (e.g. "dock1").
+     *
+     * This is deliberately a plain field rather than a property: the
+     * {@link Settings} base class binds every property to a gsettings key and
+     * would warn that there is no "name" key.
+     */
+    public string name;
+
     public const int MIN_ICON_SIZE = 16;
     public const int MAX_ICON_SIZE = 128;
 
@@ -38,6 +47,9 @@ namespace Plank {
     internal const uint MAX_UNHIDE_DELAY = 2500;
 
     internal const int MIN_PREVIEW_SIZE = 64;
+
+    [Description (nick = "display-name", blurb = "The name shown for this dock in preferences.")]
+    public string DisplayName { get; set; }
 
     [Description (nick = "current-workspace-only", blurb = "Whether to show only windows of the current workspace.")]
     public bool CurrentWorkspaceOnly { get; set; }
@@ -108,6 +120,9 @@ namespace Plank {
     [Description (nick = "auto-pinning", blurb = "Whether to automatically pin an application if it seems useful to do.")]
     public bool AutoPinning { get; set; }
 
+    [Description (nick = "show-new-applications", blurb = "Whether newly opened applications automatically appear on the dock.")]
+    public bool ShowNewApplications { get; set; }
+
     [Description (nick = "show-dock-item", blurb = "Whether to show the item for the dock itself.")]
     public bool ShowDockItem { get; set; }
 
@@ -134,9 +149,18 @@ namespace Plank {
      */
     public DockPreferences (string name) {
       Object (settings: create_settings ("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/%s/".printf (name)));
+      this.name = name;
     }
 
     ~DockPreferences () {
+    }
+
+    /**
+     * The friendly name to show for this dock, falling back to its id.
+     */
+    public string display_name () {
+      var display = DisplayName.strip ();
+      return (display != "" ? display : name);
     }
 
     /**

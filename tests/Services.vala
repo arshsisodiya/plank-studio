@@ -142,6 +142,12 @@ namespace PlankTests {
     Test.add_func ("/Services/DBusNames/application_id", dbus_names_application_id);
     Test.add_func ("/Services/DBusNames/object_path", dbus_names_object_path);
     Test.add_func ("/Services/AppImage/header", appimage_header);
+    Test.add_func ("/Services/DockManager/next_dock_id", dock_manager_next_dock_id);
+    Test.add_func ("/Services/DockCollision/horizontal", dock_collision_horizontal);
+    Test.add_func ("/Services/DockCollision/vertical", dock_collision_vertical);
+    Test.add_func ("/Services/DockCollision/clamped", dock_collision_clamped);
+    Test.add_func ("/Services/DockCollision/no_overlap", dock_collision_no_overlap);
+    Test.add_func ("/Services/DockCollision/too_long", dock_collision_too_long);
   }
 
   void matcher_desktop_file_for_window_class () {
@@ -2429,5 +2435,84 @@ namespace PlankTests {
 
     // A file too short to hold the type isn't one either
     assert (!is_appimage_header (type2[0:10]));
+  }
+
+  void dock_manager_next_dock_id () {
+    var used = new Gee.ArrayList<string> ();
+    assert (DockManager.next_dock_id (used) == "dock1");
+
+    used.add ("dock1");
+    assert (DockManager.next_dock_id (used) == "dock2");
+
+    used.add ("dock2");
+    used.add ("dock4");
+    assert (DockManager.next_dock_id (used) == "dock3");
+
+    // All ids exhausted
+    used.clear ();
+    for (var i = 1; i <= DockManager.MAX_DOCKS * 4; i++)
+      used.add ("dock%d".printf (i));
+    assert (DockManager.next_dock_id (used) == null);
+  }
+
+  Gdk.Rectangle collision_rect (int x, int y, int width, int height) {
+    return { x, y, width, height };
+  }
+
+  int collision_offset (Gdk.Rectangle base_region, bool horizontal,
+                        Gdk.Rectangle monitor, Gdk.Rectangle[] others, int gap) {
+    var placed = new Gee.ArrayList<Gdk.Rectangle?> ();
+    foreach (var other in others)
+      placed.add (other);
+
+    return PositionManager.compute_collision_offset (base_region, horizontal, monitor, placed, gap);
+  }
+
+  void dock_collision_no_overlap () {
+    var monitor = collision_rect (0, 0, 1920, 1080);
+    var base_region = collision_rect (760, 1032, 400, 48);
+
+    assert (collision_offset (base_region, true, monitor, {}, 8) == 0);
+
+    // A dock on the other edge shares no pixels
+    Gdk.Rectangle[] others = { collision_rect (760, 0, 400, 48) };
+    assert (collision_offset (base_region, true, monitor, others, 8) == 0);
+  }
+
+  void dock_collision_horizontal () {
+    var monitor = collision_rect (0, 0, 1920, 1080);
+    var base_region = collision_rect (760, 1032, 400, 48);
+
+    // Overlapping dock: move to the nearest free side, leaving the gap
+    Gdk.Rectangle[] others = { collision_rect (700, 1032, 400, 48) };
+    assert (collision_offset (base_region, true, monitor, others, 8) == 348);
+  }
+
+  void dock_collision_vertical () {
+    var monitor = collision_rect (0, 0, 1080, 1920);
+    var base_region = collision_rect (1032, 760, 48, 400);
+
+    Gdk.Rectangle[] others = { collision_rect (1032, 700, 48, 400) };
+    assert (collision_offset (base_region, false, monitor, others, 8) == 348);
+  }
+
+  void dock_collision_clamped () {
+    var monitor = collision_rect (0, 0, 1920, 1080);
+    // Near the right edge: the forward nudge would leave the monitor, so the
+    // dock goes backwards instead
+    var base_region = collision_rect (1400, 1032, 400, 48);
+
+    Gdk.Rectangle[] others = { collision_rect (1400, 1032, 300, 48) };
+    assert (collision_offset (base_region, true, monitor, others, 8) == -408);
+  }
+
+  void dock_collision_too_long () {
+    // Two docks longer than half the edge cannot both fit: the dock moves to
+    // the position where the overlap is smallest instead of not moving
+    var monitor = collision_rect (0, 0, 1024, 1024);
+    var base_region = collision_rect (0, 274, 60, 532);
+
+    Gdk.Rectangle[] others = { collision_rect (0, 274, 60, 532) };
+    assert (collision_offset (base_region, false, monitor, others, 8) == -274);
   }
 }

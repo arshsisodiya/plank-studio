@@ -89,6 +89,8 @@ namespace Plank {
     [GtkChild]
     unowned Gtk.Switch sw_show_unpinned;
     [GtkChild]
+    unowned Gtk.Switch sw_show_new_applications;
+    [GtkChild]
     unowned Gtk.Switch sw_lock_items;
     [GtkChild]
     unowned Gtk.Switch sw_tooltips_enabled;
@@ -107,6 +109,25 @@ namespace Plank {
 
     [GtkChild]
     unowned Gtk.IconView view_docklets;
+    [GtkChild]
+    unowned Gtk.Stack dock_preferences;
+
+    DockManager dock_manager;
+
+    /**
+     * The dock whose settings are currently bound to the widgets. Used to
+     * avoid rebinding everything when the same dock is shown again.
+     */
+    DockController? bound_controller;
+
+    Gtk.ListBox? list_docks;
+    Gtk.Switch? sw_avoid_overlap;
+    Gtk.ListBox? list_items;
+    Gtk.Button? btn_add_file;
+    Gtk.Button? btn_add_folder;
+
+    DockItemProvider? items_provider;
+    bool cleaned_up = false;
 
     public PreferencesWindow (DockController controller) {
       Object (controller: controller);
@@ -117,21 +138,52 @@ namespace Plank {
       var title = _("Preferences");
 
       prefs = controller.prefs;
+      dock_manager = Factory.main.dock_manager;
+
+      bound_controller = controller;
 
       init_dock_tab ();
+      init_docks_tab ();
+      init_items_tab ();
       init_docklets_tab ();
       connect_signals ();
 
       notify["controller"].connect (controller_changed);
+      destroy.connect (cleanup);
     }
 
     void controller_changed () {
+      if (cleaned_up || bound_controller == controller)
+        return;
+
       disconnect_signals ();
+      unbind_items_provider ();
 
       prefs = controller.prefs;
+      bound_controller = controller;
 
       init_dock_tab ();
+      bind_items_provider ();
+      refresh_docks_list ();
       connect_signals ();
+    }
+
+    /**
+     * Releases the connections which would otherwise keep this window alive
+     * after it has been destroyed.
+     */
+    void cleanup () {
+      if (cleaned_up)
+        return;
+
+      cleaned_up = true;
+
+      unbind_items_provider ();
+
+      if (dock_manager != null)
+        dock_manager.docks_changed.disconnect (refresh_docks_list);
+
+      disconnect_signals ();
     }
 
     public override bool key_press_event (Gdk.EventKey event) {
@@ -201,6 +253,9 @@ namespace Plank {
         break;
       case "PinnedOnly":
         sw_show_unpinned.set_active (!prefs.PinnedOnly);
+        break;
+      case "ShowNewApplications":
+        sw_show_new_applications.set_active (prefs.ShowNewApplications);
         break;
       case "Position":
         cb_position.active_id = ((int) prefs.Position).to_string ();
@@ -312,6 +367,10 @@ namespace Plank {
 
     void show_unpinned_toggled (GLib.Object widget, ParamSpec param) {
       prefs.PinnedOnly = !((Gtk.Switch) widget).get_active ();
+    }
+
+    void show_new_applications_toggled (GLib.Object widget, ParamSpec param) {
+      prefs.ShowNewApplications = ((Gtk.Switch) widget).get_active ();
     }
 
     void lock_items_toggled (GLib.Object widget, ParamSpec param) {
@@ -467,6 +526,7 @@ namespace Plank {
       sw_workspace_only.notify["active"].connect (workspace_only_toggled);
       sw_bring_to_workspace.notify["active"].connect (bring_to_workspace_toggled);
       sw_show_unpinned.notify["active"].connect (show_unpinned_toggled);
+      sw_show_new_applications.notify["active"].connect (show_new_applications_toggled);
       sw_lock_items.notify["active"].connect (lock_items_toggled);
       sw_tooltips_enabled.notify["active"].connect (tooltips_enabled_toggled);
       sw_previews_enabled.notify["active"].connect (previews_enabled_toggled);
@@ -504,6 +564,7 @@ namespace Plank {
       sw_workspace_only.notify["active"].disconnect (workspace_only_toggled);
       sw_bring_to_workspace.notify["active"].disconnect (bring_to_workspace_toggled);
       sw_show_unpinned.notify["active"].disconnect (show_unpinned_toggled);
+      sw_show_new_applications.notify["active"].disconnect (show_new_applications_toggled);
       sw_lock_items.notify["active"].disconnect (lock_items_toggled);
       sw_tooltips_enabled.notify["active"].disconnect (tooltips_enabled_toggled);
       sw_previews_enabled.notify["active"].disconnect (previews_enabled_toggled);
@@ -562,6 +623,7 @@ namespace Plank {
       sw_workspace_only.set_active (prefs.CurrentWorkspaceOnly);
       sw_bring_to_workspace.set_active (prefs.BringToCurrentWorkspace);
       sw_show_unpinned.set_active (!prefs.PinnedOnly);
+      sw_show_new_applications.set_active (prefs.ShowNewApplications);
       sw_lock_items.set_active (prefs.LockItems);
       sw_tooltips_enabled.set_active (prefs.TooltipsEnabled);
       sw_previews_enabled.set_active (prefs.PreviewsEnabled);
@@ -597,6 +659,522 @@ namespace Plank {
 
       sorted_docklets.set_sort_column_id (DockletViewModel.Column.NAME, Gtk.SortType.ASCENDING);
       view_docklets.set_model (sorted_docklets);
+    }
+
+    //
+    // Docks tab
+    //
+
+    void init_docks_tab () {
+      if (list_docks != null) {
+        refresh_docks_list ();
+        return;
+      }
+
+      var page = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
+      page.margin = 16;
+      page.set_size_request (520, 360);
+
+      var overlap_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+      var overlap_label = new Gtk.Label (_("Keep docks from overlapping"));
+      overlap_label.halign = Gtk.Align.START;
+      overlap_row.pack_start (overlap_label, true, true, 0);
+
+      sw_avoid_overlap = new Gtk.Switch ();
+      sw_avoid_overlap.valign = Gtk.Align.CENTER;
+      sw_avoid_overlap.set_active (dock_manager.get_avoid_overlap ());
+      sw_avoid_overlap.notify["active"].connect (avoid_overlap_toggled);
+      overlap_row.pack_end (sw_avoid_overlap, false, false, 0);
+      page.pack_start (overlap_row, false, false, 0);
+
+      var hint = new Gtk.Label (_("Docks whose visible areas would overlap are moved apart automatically."));
+      hint.halign = Gtk.Align.START;
+      hint.xalign = 0.0f;
+      hint.set_line_wrap (true);
+      hint.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+      page.pack_start (hint, false, false, 0);
+
+      var scrolled = new Gtk.ScrolledWindow (null, null);
+      scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+      scrolled.set_shadow_type (Gtk.ShadowType.IN);
+      scrolled.set_min_content_height (240);
+
+      list_docks = new Gtk.ListBox ();
+      list_docks.set_selection_mode (Gtk.SelectionMode.NONE);
+      list_docks.set_activate_on_single_click (false);
+      scrolled.add (list_docks);
+      page.pack_start (scrolled, true, true, 0);
+
+      var buttons = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+      var add_button = new Gtk.Button.with_label (_("Add Dock"));
+      add_button.tooltip_text = _("Create another dock with its own settings and items");
+      add_button.clicked.connect (add_dock_clicked);
+      buttons.pack_end (add_button, false, false, 0);
+      page.pack_start (buttons, false, false, 0);
+
+      dock_preferences.add_titled (page, "docks", _("Docks"));
+      page.show_all ();
+
+      dock_manager.docks_changed.connect (refresh_docks_list);
+      refresh_docks_list ();
+    }
+
+    void avoid_overlap_toggled (GLib.Object widget, ParamSpec prop) {
+      if (sw_avoid_overlap == null)
+        return;
+
+      dock_manager.set_avoid_overlap (sw_avoid_overlap.get_active ());
+    }
+
+    void refresh_docks_list () {
+      if (list_docks == null)
+        return;
+
+      Gtk.ListBoxRow? row;
+      while ((row = list_docks.get_row_at_index (0)) != null)
+        list_docks.remove (row);
+
+      foreach (unowned string id in dock_manager.get_known_docks ()) {
+        var dock_id = id;
+        var dock_row = make_dock_row (dock_id);
+        list_docks.add (dock_row);
+        dock_row.show_all ();
+      }
+    }
+
+    Gtk.ListBoxRow make_dock_row (string dock_id) {
+      var row = new Gtk.ListBoxRow ();
+      row.activatable = false;
+
+      var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+      box.margin = 6;
+
+      var labels = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
+      labels.hexpand = true;
+
+      var name = new Gtk.Label ("");
+      name.set_markup ("<b>%s</b>".printf (GLib.Markup.escape_text (dock_manager.get_display_name (dock_id))));
+      name.halign = Gtk.Align.START;
+      name.set_ellipsize (Pango.EllipsizeMode.END);
+      labels.pack_start (name, false, false, 0);
+
+      var id_label = new Gtk.Label (dock_id);
+      id_label.halign = Gtk.Align.START;
+      id_label.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+      labels.pack_start (id_label, false, false, 0);
+
+      box.pack_start (labels, true, true, 0);
+
+      var enabled = new Gtk.Switch ();
+      enabled.valign = Gtk.Align.CENTER;
+      enabled.set_active (dock_manager.is_enabled (dock_id));
+      enabled.tooltip_text = _("Show this dock");
+      enabled.notify["active"].connect ((o, ps) => dock_enabled_toggled (dock_id, enabled));
+      box.pack_start (enabled, false, false, 0);
+
+      var prefs_button = new Gtk.Button.with_label (_("Preferences"));
+      prefs_button.tooltip_text = _("Edit this dock's settings");
+      prefs_button.clicked.connect (() => open_dock_preferences (dock_id));
+      box.pack_start (prefs_button, false, false, 0);
+
+      var duplicate_button = new Gtk.Button.with_label (_("Duplicate"));
+      duplicate_button.tooltip_text = _("Copy this dock's settings and items into a new dock");
+      duplicate_button.clicked.connect (() => duplicate_dock_clicked (dock_id));
+      box.pack_start (duplicate_button, false, false, 0);
+
+      var rename_button = new Gtk.Button.with_label (_("Rename"));
+      rename_button.clicked.connect (() => rename_dock_clicked (dock_id));
+      box.pack_start (rename_button, false, false, 0);
+
+      var delete_button = new Gtk.Button.with_label (_("Delete"));
+      delete_button.clicked.connect (() => delete_dock_clicked (dock_id));
+      box.pack_start (delete_button, false, false, 0);
+
+      row.add (box);
+      return row;
+    }
+
+    void dock_enabled_toggled (string dock_id, Gtk.Switch widget) {
+      var wanted = widget.get_active ();
+      if (wanted == dock_manager.is_enabled (dock_id))
+        return;
+
+      if (!dock_manager.set_enabled (dock_id, wanted)) {
+        widget.set_active (dock_manager.is_enabled (dock_id));
+        if (!wanted)
+          show_message (_("At least one dock has to stay enabled."));
+        else
+          show_message (_("Could not enable this dock."));
+      }
+    }
+
+    void open_dock_preferences (string dock_id) {
+      var dock = Factory.main.find_dock (dock_id);
+      if (dock == null || dock == controller)
+        return;
+
+      Factory.main.show_preferences (dock);
+    }
+
+    void add_dock_clicked () {
+      var name = prompt_for_name (_("Add Dock"), _("Name for the new dock:"), "");
+      if (name == null)
+        return;
+
+      if (dock_manager.create_dock (name) == null)
+        show_message (_("Could not add a dock. Plank supports at most %d docks.").printf (DockManager.MAX_DOCKS));
+    }
+
+    void duplicate_dock_clicked (string dock_id) {
+      if (dock_manager.duplicate_dock (dock_id) == null)
+        show_message (_("Could not duplicate this dock. Plank supports at most %d docks.").printf (DockManager.MAX_DOCKS));
+    }
+
+    void rename_dock_clicked (string dock_id) {
+      var current = dock_manager.get_display_name (dock_id);
+      var name = prompt_for_name (_("Rename Dock"), _("Name for this dock:"), current);
+      if (name == null)
+        return;
+
+      dock_manager.rename_dock (dock_id, name);
+    }
+
+    void delete_dock_clicked (string dock_id) {
+      var display_name = dock_manager.get_display_name (dock_id);
+
+      if (!confirm (_("Delete the dock \"%s\"?").printf (display_name),
+                    _("Its settings and items will be removed permanently.")))
+        return;
+
+      if (!dock_manager.delete_dock (dock_id))
+        show_message (_("At least one dock has to remain."));
+    }
+
+    //
+    // Items tab
+    //
+
+    void init_items_tab () {
+      if (list_items != null) {
+        bind_items_provider ();
+        return;
+      }
+
+      var page = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
+      page.margin = 16;
+      page.set_size_request (520, 360);
+
+      var hint = new Gtk.Label (_("Items shown on this dock. Drag files or folders here to add them."));
+      hint.halign = Gtk.Align.START;
+      hint.xalign = 0.0f;
+      hint.set_line_wrap (true);
+      hint.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+      page.pack_start (hint, false, false, 0);
+
+      var scrolled = new Gtk.ScrolledWindow (null, null);
+      scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+      scrolled.set_shadow_type (Gtk.ShadowType.IN);
+      scrolled.set_min_content_height (240);
+
+      list_items = new Gtk.ListBox ();
+      list_items.set_selection_mode (Gtk.SelectionMode.NONE);
+      list_items.set_activate_on_single_click (false);
+      scrolled.add (list_items);
+      page.pack_start (scrolled, true, true, 0);
+
+      Gtk.TargetEntry te = { "text/uri-list", 0, 0 };
+      Gtk.drag_dest_set (list_items, 0, { te }, Gdk.DragAction.COPY);
+      list_items.drag_data_received.connect (items_drag_data_received);
+
+      var buttons = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+      btn_add_file = new Gtk.Button.with_label (_("Add File"));
+      btn_add_file.clicked.connect (() => add_item_clicked (false));
+      buttons.pack_start (btn_add_file, false, false, 0);
+
+      btn_add_folder = new Gtk.Button.with_label (_("Add Folder"));
+      btn_add_folder.clicked.connect (() => add_item_clicked (true));
+      buttons.pack_start (btn_add_folder, false, false, 0);
+      page.pack_start (buttons, false, false, 0);
+
+      dock_preferences.add_titled (page, "items", _("Items"));
+      page.show_all ();
+
+      bind_items_provider ();
+    }
+
+    void bind_items_provider () {
+      unbind_items_provider ();
+
+      unowned ApplicationDockItemProvider? provider = controller.default_provider as ApplicationDockItemProvider;
+      if (provider != null) {
+        items_provider = provider;
+        provider.elements_changed.connect (items_provider_changed);
+        provider.positions_changed.connect (items_provider_positions_changed);
+      }
+
+      refresh_items_list ();
+    }
+
+    void unbind_items_provider () {
+      if (items_provider == null)
+        return;
+
+      items_provider.elements_changed.disconnect (items_provider_changed);
+      items_provider.positions_changed.disconnect (items_provider_positions_changed);
+      items_provider = null;
+    }
+
+    void items_provider_changed (Gee.List<DockElement> added, Gee.List<DockElement> removed) {
+      refresh_items_list ();
+    }
+
+    void items_provider_positions_changed (Gee.List<unowned DockElement> elements) {
+      refresh_items_list ();
+    }
+
+    Gee.ArrayList<DockItem> get_pinned_items () {
+      var result = new Gee.ArrayList<DockItem> ();
+
+      if (items_provider == null)
+        return result;
+
+      foreach (var element in items_provider.Elements) {
+        unowned DockItem? item = element as DockItem;
+        if (item != null && !(item is TransientDockItem))
+          result.add (item);
+      }
+
+      return result;
+    }
+
+    void refresh_items_list () {
+      if (list_items == null)
+        return;
+
+      Gtk.ListBoxRow? row;
+      while ((row = list_items.get_row_at_index (0)) != null)
+        list_items.remove (row);
+
+      var items = get_pinned_items ();
+      var has_provider = (items_provider != null);
+
+      if (btn_add_file != null)
+        btn_add_file.sensitive = has_provider;
+      if (btn_add_folder != null)
+        btn_add_folder.sensitive = has_provider;
+
+      if (items.size == 0) {
+        var empty_row = new Gtk.ListBoxRow ();
+        empty_row.activatable = false;
+        var empty_label = new Gtk.Label (has_provider
+          ? _("No items yet. Use the buttons below or drag files here.")
+          : _("This dock cannot accept items."));
+        empty_label.margin = 12;
+        empty_label.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+        empty_row.add (empty_label);
+        list_items.add (empty_row);
+        empty_row.show_all ();
+        return;
+      }
+
+      var index = 0;
+      foreach (var item in items) {
+        var item_row = make_item_row (item, index, items.size);
+        list_items.add (item_row);
+        item_row.show_all ();
+        index++;
+      }
+    }
+
+    Gtk.ListBoxRow make_item_row (DockItem item, int index, int count) {
+      var row = new Gtk.ListBoxRow ();
+      row.activatable = false;
+
+      var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+      box.margin = 4;
+
+      var image = new Gtk.Image ();
+      image.set_from_pixbuf (DrawingService.load_icon (item.Icon, 32, 32));
+      box.pack_start (image, false, false, 0);
+
+      var labels = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
+      labels.hexpand = true;
+
+      var name = new Gtk.Label (item.Text != "" ? item.Text : item.Launcher);
+      name.halign = Gtk.Align.START;
+      name.set_ellipsize (Pango.EllipsizeMode.END);
+      labels.pack_start (name, false, false, 0);
+
+      var uri = new Gtk.Label (item.Launcher);
+      uri.halign = Gtk.Align.START;
+      uri.set_ellipsize (Pango.EllipsizeMode.MIDDLE);
+      uri.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+      labels.pack_start (uri, false, false, 0);
+
+      box.pack_start (labels, true, true, 0);
+
+      var up = new Gtk.Button.from_icon_name ("go-up-symbolic", Gtk.IconSize.SMALL_TOOLBAR);
+      up.tooltip_text = _("Move up");
+      up.sensitive = (index > 0);
+      up.clicked.connect (() => move_item (item, -1));
+      box.pack_start (up, false, false, 0);
+
+      var down = new Gtk.Button.from_icon_name ("go-down-symbolic", Gtk.IconSize.SMALL_TOOLBAR);
+      down.tooltip_text = _("Move down");
+      down.sensitive = (index < count - 1);
+      down.clicked.connect (() => move_item (item, 1));
+      box.pack_start (down, false, false, 0);
+
+      var remove = new Gtk.Button.from_icon_name ("edit-delete-symbolic", Gtk.IconSize.SMALL_TOOLBAR);
+      remove.tooltip_text = _("Remove from this dock");
+      remove.clicked.connect (() => remove_item_clicked (item));
+      box.pack_start (remove, false, false, 0);
+
+      row.add (box);
+      return row;
+    }
+
+    void move_item (DockItem item, int direction) {
+      if (items_provider == null)
+        return;
+
+      var items = get_pinned_items ();
+      var index = items.index_of (item);
+      var target_index = index + direction;
+
+      if (index < 0 || target_index < 0 || target_index >= items.size)
+        return;
+
+      items_provider.move_to (item, items[target_index]);
+    }
+
+    void remove_item_clicked (DockItem item) {
+      if (items_provider == null || !items_provider.Elements.contains (item))
+        return;
+
+      // Deleting the preferences file makes the provider drop or unpin the item
+      item.delete ();
+    }
+
+    void add_item_clicked (bool folder) {
+      if (items_provider == null)
+        return;
+
+      var title = folder ? _("Add Folder") : _("Add File");
+      var action = folder ? Gtk.FileChooserAction.SELECT_FOLDER : Gtk.FileChooserAction.OPEN;
+      var dialog = new Gtk.FileChooserDialog (title, this, action,
+        _("Cancel"), Gtk.ResponseType.CANCEL,
+        _("Add"), Gtk.ResponseType.OK);
+
+      dialog.select_multiple = !folder;
+      dialog.local_only = false;
+
+      if (dialog.run () == Gtk.ResponseType.OK)
+        foreach (unowned string uri in dialog.get_uris ())
+          add_uri_to_current_dock (uri);
+
+      dialog.destroy ();
+    }
+
+    [CCode (instance_pos = -1)]
+    void items_drag_data_received (Gtk.Widget widget, Gdk.DragContext context,
+                                   int x, int y, Gtk.SelectionData data,
+                                   uint info, uint time_) {
+      unowned string? raw = (string?) data.get_data ();
+      if (raw != null)
+        foreach (unowned string uri in Uri.list_extract_uris (raw))
+          add_uri_to_current_dock (uri);
+
+      Gtk.drag_finish (context, true, false, time_);
+    }
+
+    void add_uri_to_current_dock (string uri) {
+      if (items_provider == null) {
+        show_message (_("This dock cannot accept items."));
+        return;
+      }
+
+      if (!items_provider.add_item_with_uri (uri)) {
+        var basename = File.new_for_uri (uri).get_basename () ?? uri;
+        show_message (_("Could not add \"%s\" to this dock.").printf (basename));
+      }
+    }
+
+    //
+    // Shared dialogs
+    //
+
+    string? prompt_for_name (string title, string label, string initial) {
+      var dialog = new Gtk.Dialog.with_buttons (title, this, Gtk.DialogFlags.MODAL,
+        _("Cancel"), Gtk.ResponseType.CANCEL,
+        _("OK"), Gtk.ResponseType.OK);
+      dialog.set_default_response (Gtk.ResponseType.OK);
+
+      var box = dialog.get_content_area ();
+      box.margin = 12;
+      box.spacing = 6;
+
+      var lbl = new Gtk.Label (label);
+      lbl.halign = Gtk.Align.START;
+      box.add (lbl);
+
+      var entry = new Gtk.Entry ();
+      entry.text = initial;
+      entry.activates_default = true;
+      box.add (entry);
+
+      dialog.show_all ();
+
+      string? result = null;
+      if (dialog.run () == Gtk.ResponseType.OK)
+        result = entry.get_text ().strip ();
+
+      dialog.destroy ();
+      return result;
+    }
+
+    bool confirm (string text, string secondary) {
+      var dialog = new Gtk.Dialog.with_buttons (_("Confirm"), this, Gtk.DialogFlags.MODAL,
+        _("Cancel"), Gtk.ResponseType.CANCEL,
+        _("Delete"), Gtk.ResponseType.OK);
+      dialog.set_default_response (Gtk.ResponseType.CANCEL);
+
+      var box = dialog.get_content_area ();
+      box.margin = 12;
+      box.spacing = 6;
+
+      var label = new Gtk.Label (text);
+      label.halign = Gtk.Align.START;
+      box.add (label);
+
+      var detail = new Gtk.Label (secondary);
+      detail.halign = Gtk.Align.START;
+      detail.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+      box.add (detail);
+
+      dialog.show_all ();
+      var response = dialog.run ();
+      dialog.destroy ();
+
+      return response == Gtk.ResponseType.OK;
+    }
+
+    void show_message (string text) {
+      var dialog = new Gtk.Dialog.with_buttons (_("Plank"), this, Gtk.DialogFlags.MODAL,
+        _("OK"), Gtk.ResponseType.OK);
+      dialog.set_default_response (Gtk.ResponseType.OK);
+
+      var box = dialog.get_content_area ();
+      box.margin = 12;
+
+      var label = new Gtk.Label (text);
+      label.halign = Gtk.Align.START;
+      label.set_line_wrap (true);
+      box.add (label);
+
+      dialog.show_all ();
+      dialog.run ();
+      dialog.destroy ();
     }
 
     [CCode (instance_pos = -1)]

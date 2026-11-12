@@ -645,7 +645,7 @@ namespace Plank {
 
       if ((button & PopupButton.RIGHT) != 0
           && (item == null || (event.state & Gdk.ModifierType.CONTROL_MASK) != 0)) {
-        menu_items = Factory.item_factory.get_item_for_dock ().get_menu_items ();
+        menu_items = Factory.item_factory.get_item_for_dock (controller).get_menu_items ();
         if ((event.state & Gdk.ModifierType.MOD1_MASK) != 0
             && (event.state & Gdk.ModifierType.SHIFT_MASK) != 0)
           menu_items.add_all (get_dock_debug_menu_items (controller));

@@ -138,10 +138,11 @@ namespace Plank {
     /**
      * Creates a new {@link PlankDockItem} for the dock itself.
      *
+     * @param controller the dock the item belongs to, or null
      * @return the new {@link PlankDockItem} created
      */
-    public virtual DockItem get_item_for_dock () {
-      return PlankDockItem.get_instance ();
+    public virtual DockItem get_item_for_dock (DockController? controller = null) {
+      return new PlankDockItem (controller);
     }
 
     /**
@@ -282,7 +283,7 @@ namespace Plank {
       return null;
     }
 
-    void make_dock_item_for_desktop_id (string id) {
+    void make_dock_item_for_desktop_id (string id, File target_dir) {
       var app_info = new DesktopAppInfo (id);
       if (app_info == null) {
         warning ("Failed to create dock item for '%s'", id);
@@ -297,7 +298,7 @@ namespace Plank {
 
       try {
         var uri = Filename.to_uri (filename);
-        if (make_dock_item (uri) == null)
+        if (make_dock_item (uri, target_dir) == null)
           warning ("Failed to create dock item for '%s' ('%s')", id, uri);
       } catch (ConvertError e) {
         warning ("Failed to create dock item for '%s'", id);
@@ -307,11 +308,13 @@ namespace Plank {
 
     /**
      * Creates a bunch of default .dockitem's.
+     *
+     * @param target_dir the folder where to put the .dockitem files
      */
-    public void make_default_items () {
+    public void make_default_items (File target_dir) {
       GLib.File? web = null;
       foreach (unowned string uri in DEFAULT_APP_WEB) {
-        web = make_dock_item (uri);
+        web = make_dock_item (uri, target_dir);
         if (web != null) {
           break;
         }
@@ -319,13 +322,13 @@ namespace Plank {
       if (web == null) {
         var web_appinfo = AppInfo.get_default_for_type ("x-scheme-handler/http", false);
         if (web_appinfo != null) {
-          make_dock_item_for_desktop_id (web_appinfo.get_id ());
+          make_dock_item_for_desktop_id (web_appinfo.get_id (), target_dir);
         }
       }
 
       GLib.File? mail = null;
       foreach (unowned string uri in DEFAULT_APP_MAIL) {
-        mail = make_dock_item (uri);
+        mail = make_dock_item (uri, target_dir);
         if (mail != null) {
           break;
         }
@@ -333,13 +336,13 @@ namespace Plank {
       if (mail == null) {
         var mail_appinfo = AppInfo.get_default_for_type ("x-scheme-handler/mailto", false);
         if (mail_appinfo != null) {
-          make_dock_item_for_desktop_id (mail_appinfo.get_id ());
+          make_dock_item_for_desktop_id (mail_appinfo.get_id (), target_dir);
         }
       }
 
       GLib.File? terminal;
       foreach (unowned string uri in DEFAULT_APP_TERMINAL) {
-        terminal = make_dock_item (uri);
+        terminal = make_dock_item (uri, target_dir);
         if (terminal != null) {
           break;
         }
@@ -347,7 +350,7 @@ namespace Plank {
 
       GLib.File? audio = null;
       foreach (unowned string uri in DEFAULT_APP_AUDIO) {
-        audio = make_dock_item (uri);
+        audio = make_dock_item (uri, target_dir);
         if (audio != null) {
           break;
         }
@@ -355,13 +358,13 @@ namespace Plank {
       if (audio == null) {
         var audio_appinfo = AppInfo.get_default_for_type ("audio/mpeg", false);
         if (audio_appinfo != null) {
-          make_dock_item_for_desktop_id (audio_appinfo.get_id ());
+          make_dock_item_for_desktop_id (audio_appinfo.get_id (), target_dir);
         }
       }
 
       GLib.File? video = null;
       foreach (unowned string uri in DEFAULT_APP_VIDEO) {
-        video = make_dock_item (uri);
+        video = make_dock_item (uri, target_dir);
         if (video != null) {
           break;
         }
@@ -369,13 +372,13 @@ namespace Plank {
       if (video == null) {
         var video_appinfo = AppInfo.get_default_for_type ("video/mp4", false);
         if (video_appinfo != null) {
-          make_dock_item_for_desktop_id (video_appinfo.get_id ());
+          make_dock_item_for_desktop_id (video_appinfo.get_id (), target_dir);
         }
       }
 
       GLib.File? photo = null;
       foreach (unowned string uri in DEFAULT_APP_PHOTO) {
-        photo = make_dock_item (uri);
+        photo = make_dock_item (uri, target_dir);
         if (photo != null) {
           break;
         }
@@ -383,13 +386,13 @@ namespace Plank {
       if (photo == null) {
         var photo_appinfo = AppInfo.get_default_for_type ("image/jpeg", false);
         if (photo_appinfo != null) {
-          make_dock_item_for_desktop_id (photo_appinfo.get_id ());
+          make_dock_item_for_desktop_id (photo_appinfo.get_id (), target_dir);
         }
       }
 
       GLib.File? messenger;
       foreach (unowned string uri in DEFAULT_APP_MESSENGER) {
-        messenger = make_dock_item (uri);
+        messenger = make_dock_item (uri, target_dir);
         if (messenger != null) {
           break;
         }
@@ -397,7 +400,7 @@ namespace Plank {
 
       GLib.File? file_manager;
       foreach (unowned string uri in DEFAULT_APP_FILE_MANAGER) {
-        file_manager = make_dock_item (uri);
+        file_manager = make_dock_item (uri, target_dir);
         if (file_manager != null) {
           break;
         }

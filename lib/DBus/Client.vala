@@ -26,16 +26,40 @@ namespace Plank
 	public class DBusClient : GLib.Object
 	{
 		static DBusClient? instance;
-		
+		static Gee.HashMap<string, DBusClient>? dock_instances;
+
+		/**
+		 * The stable id of the dock this client talks to, or null for the
+		 * first dock that answers.
+		 */
+		public string? dock_name { get; construct; }
+
 		/**
 		 * Get the singleton instance of {@link Plank.DBusClient}
 		 */
 		public static unowned DBusClient get_instance ()
 		{
 			if (instance == null)
-				instance = new DBusClient ();
+				instance = new DBusClient (null);
 			
 			return instance;
+		}
+
+		/**
+		 * Get a client connected to the dock with the given stable id.
+		 *
+		 * @param dock_name the dock id, for example "dock1"
+		 * @return the client for that dock
+		 */
+		public static DBusClient get_for_dock (string dock_name)
+		{
+			if (dock_instances == null)
+				dock_instances = new Gee.HashMap<string, DBusClient> ();
+
+			if (!dock_instances.has_key (dock_name))
+				dock_instances[dock_name] = new DBusClient (dock_name);
+
+			return dock_instances.get (dock_name);
 		}
 		
 		/**
@@ -56,6 +80,7 @@ namespace Plank
 		
 		DBusConnection? connection = null;
 		string? client_object_path;
+		string? expected_object_path;
 		
 		string? dock_bus_owner;
 		string? dock_bus_name;
@@ -69,9 +94,9 @@ namespace Plank
 		string[]? persistent_apps_list = null;
 		string[]? transient_apps_list = null;
 		
-		DBusClient ()
+		DBusClient (string? dock_name)
 		{
-			Object ();
+			Object (dock_name: dock_name);
 		}
 		
 		construct
@@ -88,6 +113,9 @@ namespace Plank
 				critical ("Initializing client failed");
 				return;
 			}
+
+			if (dock_name != null && dock_name != "")
+				expected_object_path = dock_dbus_object_path (object_path, dock_name);
 			
 			try {
 				// Listen for "Ping" signals coming from docks
@@ -124,6 +152,9 @@ namespace Plank
 		void handle_dock_ping (DBusConnection connection, string sender_name, string object_path,
 			string interface_name, string signal_name, Variant parameters)
 		{
+			if (expected_object_path != null && object_path != expected_object_path)
+				return;
+
 			if (dock_bus_name == null && dock_bus_name != sender_name)
 				connect_proxies (connection, sender_name, object_path);
 		}
@@ -152,6 +183,9 @@ namespace Plank
 		void connect_proxies (DBusConnection connection, string sender_name, string object_path)
 		{	
 			debug ("Connecting and create proxies for '%s' (%s)", sender_name, object_path);
+
+			if (items_proxy != null)
+				disconnect_proxies ();
 			
 			try {
 				items_proxy = connection.get_proxy_sync<Plank.DBusItemsIface> (sender_name, object_path, DBusProxyFlags.NONE);
@@ -179,8 +213,10 @@ namespace Plank
 			dock_bus_name = null;
 			dock_object_path = null;
 			
-			items_proxy.changed.disconnect (invalidate_items_cache);
-			items_proxy = null;
+			if (items_proxy != null) {
+				items_proxy.changed.disconnect (invalidate_items_cache);
+				items_proxy = null;
+			}
 		}
 		
 		

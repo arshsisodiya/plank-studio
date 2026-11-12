@@ -39,6 +39,9 @@ namespace Plank {
     static uint sigint_id = 0U;
     static uint sigterm_id = 0U;
 
+    // Minimum gap left between docks that share a screen edge
+    const int DOCK_COLLISION_GAP = 8;
+
     static construct
     {
       // GLib catches these and runs the handlers from the main loop, where
@@ -175,6 +178,11 @@ namespace Plank {
     DockController? primary_dock;
     Gee.ArrayList<DockController> docks;
 
+    /**
+     * Manages the registry and lifecycle of all configured docks.
+     */
+    public DockManager dock_manager { get; private set; }
+
     construct
     {
       flags = ApplicationFlags.HANDLES_COMMAND_LINE;
@@ -294,6 +302,7 @@ namespace Plank {
       DockletManager.get_default ().load_docklets ();
 
       initialize ();
+      dock_manager = new DockManager (this);
       create_docks ();
       create_actions ();
     }
@@ -317,12 +326,11 @@ namespace Plank {
       var settings = create_settings ("net.launchpad.plank");
       var enabled_docks = settings.get_strv ("enabled-docks");
 
-      // Allow up to 8 docks
       if (enabled_docks.length <= 0) {
         enabled_docks = { "dock1" };
         settings.set_strv ("enabled-docks", enabled_docks);
-      } else if (enabled_docks.length > 8) {
-        enabled_docks = enabled_docks[0 : 8];
+      } else if (enabled_docks.length > DockManager.MAX_DOCKS) {
+        enabled_docks = enabled_docks[0 : DockManager.MAX_DOCKS];
         settings.set_strv ("enabled-docks", enabled_docks);
       }
 
@@ -331,7 +339,7 @@ namespace Plank {
         add_dock (create_dock (dock_name));
     }
 
-    DockController create_dock (string dock_name) {
+    internal DockController create_dock (string dock_name) {
       var config_folder = Paths.AppConfigFolder.get_child (dock_name);
       // Make sure our config-directory exists
       Paths.ensure_directory_exists (config_folder);
@@ -342,7 +350,7 @@ namespace Plank {
       return dock;
     }
 
-    void add_dock (DockController dock) {
+    internal void add_dock (DockController dock) {
       // Make sure to populate our primary-dock field
       if (primary_dock == null
           || (primary_dock.prefs.PinnedOnly && !dock.prefs.PinnedOnly))
@@ -350,6 +358,46 @@ namespace Plank {
 
       docks.add (dock);
       add_window (dock.window);
+
+      relayout_docks ();
+    }
+
+    /**
+     * Finds a running dock by its stable id.
+     */
+    internal DockController? find_dock (string dock_name) {
+      foreach (var dock in docks)
+        if (dock.name == dock_name)
+          return dock;
+
+      return null;
+    }
+
+    /**
+     * Recomputes every running dock's position so collision avoidance can
+     * settle after a dock is created, removed or moved.
+     */
+    internal void relayout_docks () {
+      var avoid_overlap = dock_manager != null && dock_manager.get_avoid_overlap ();
+      var placed = new Gee.ArrayList<Gdk.Rectangle?> ();
+
+      foreach (var dock in docks) {
+        unowned var position_manager = dock.position_manager;
+        if (position_manager == null)
+          continue;
+
+        if (!avoid_overlap) {
+          position_manager.set_collision_offset (0);
+        } else {
+          var offset = position_manager.resolve_collision_offset (placed, DOCK_COLLISION_GAP);
+          position_manager.set_collision_offset (offset);
+
+          if (offset != 0)
+            Logger.verbose ("Dock '%s' shifted by %dpx to avoid overlap", dock.name, offset);
+        }
+
+        placed.add (position_manager.get_static_dock_region ());
+      }
     }
 
     /**
@@ -358,14 +406,38 @@ namespace Plank {
      * @param dock the dock to remove
      */
     public void remove_dock (DockController dock) {
-      if (docks.size == 1)
+      if (!docks.contains (dock))
         return;
 
       remove_window (dock.window);
       docks.remove (dock);
 
-      if (primary_dock == dock)
-        primary_dock = docks[0];
+      if (primary_dock == dock) {
+        primary_dock = null;
+        foreach (var candidate in docks)
+          if (primary_dock == null
+              || (primary_dock.prefs.PinnedOnly && !candidate.prefs.PinnedOnly))
+            primary_dock = candidate;
+      }
+
+      // Do not leave the preferences window pointing at a dock that is about
+      // to be torn down
+      if (preferences_dlg != null && preferences_dlg.controller == dock) {
+        if (primary_dock != null) {
+          preferences_dlg.controller = primary_dock;
+          preferences_dlg.set_transient_for (primary_dock.window);
+        } else {
+          preferences_dlg.destroy ();
+          preferences_dlg = null;
+        }
+      }
+
+      dock.shutdown ();
+
+      relayout_docks ();
+
+      if (dock_manager != null)
+        dock_manager.docks_changed ();
     }
 
     /**
@@ -388,7 +460,16 @@ namespace Plank {
 
       action = new SimpleAction ("preferences", null);
       action.activate.connect (() => {
-        show_preferences (primary_dock);
+        if (primary_dock != null)
+          show_preferences (primary_dock);
+      });
+      add_action (action);
+
+      action = new SimpleAction ("preferences-for-dock", new VariantType ("s"));
+      action.activate.connect ((parameter) => {
+        var dock = find_dock (parameter.get_string ());
+        if (dock != null)
+          show_preferences (dock);
       });
       add_action (action);
 
@@ -1168,7 +1249,7 @@ please read https://www.gnu.org/licenses/why-not-lgpl.html.""");
      *
      * @param controller the dock to show preferences for
      */
-    void show_preferences (DockController controller) {
+    internal void show_preferences (DockController controller) {
       if (preferences_dlg != null) {
         preferences_dlg.controller = controller;
         preferences_dlg.set_transient_for (controller.window);

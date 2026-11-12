@@ -1,6 +1,7 @@
 plank_lib_sources = [
   'DBusManager.vala',
   'DockController.vala',
+  'DockManager.vala',
   'DockPreferences.vala',
   'DockRenderer.vala',
   'DragManager.vala',

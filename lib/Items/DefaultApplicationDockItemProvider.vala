@@ -40,6 +40,7 @@ namespace Plank {
     {
       Prefs.notify["CurrentWorkspaceOnly"].connect (handle_setting_changed);
       Prefs.notify["PinnedOnly"].connect (handle_pinned_only_changed);
+      Prefs.notify["ShowNewApplications"].connect (handle_show_new_applications_changed);
 
       WindowControl.get_wnck_screen ().window_opened.connect_after (handle_window_opened);
 
@@ -52,6 +53,7 @@ namespace Plank {
     ~DefaultApplicationDockItemProvider () {
       Prefs.notify["CurrentWorkspaceOnly"].disconnect (handle_setting_changed);
       Prefs.notify["PinnedOnly"].disconnect (handle_pinned_only_changed);
+      Prefs.notify["ShowNewApplications"].disconnect (handle_show_new_applications_changed);
 
       WindowControl.get_wnck_screen ().window_opened.disconnect (handle_window_opened);
 
@@ -145,6 +147,9 @@ namespace Plank {
       if (Prefs.PinnedOnly)
         return;
 
+      if (!Prefs.ShowNewApplications)
+        return;
+
       // Make sure plank never shows up if we don't want the dock item.
       if (!Prefs.ShowDockItem) {
         string? desktop_file = app.get_desktop_file ();
@@ -234,8 +239,15 @@ namespace Plank {
     void handle_pinned_only_changed () {
       if (Prefs.PinnedOnly)
         remove_transient_items ();
-      else
+      else if (Prefs.ShowNewApplications)
         match_running_applications ();
+    }
+
+    void handle_show_new_applications_changed () {
+      if (Prefs.ShowNewApplications)
+        match_running_applications ();
+      else
+        remove_transient_items ();
     }
 
     void match_running_applications () {

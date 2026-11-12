@@ -37,6 +37,16 @@
 			<summary>Array of names of active/enabled docks</summary>
 			<description>Contains the names of docks which are created and loaded on start up</description>
 		</key>
+		<key name="known-docks" type="as">
+			<default>['dock1']</default>
+			<summary>Array of names of all configured docks</summary>
+			<description>Contains the names of every dock Plank knows about, including disabled docks. This list is automatically updated and managed by Plank. DO NOT MODIFY.</description>
+		</key>
+		<key name="avoid-dock-overlap" type="b">
+			<default>true</default>
+			<summary>Keep docks from overlapping each other</summary>
+			<description>If true, docks on the same monitor edge are nudged apart when their visible regions would overlap.</description>
+		</key>
 	</schema>
 
 	<schema id="net.launchpad.plank.dock.settings" gettext-domain="plank-reloaded">
@@ -64,6 +74,11 @@
 			<default>false</default>
 			<summary>Only show windows from the current workspace</summary>
 			<description>If true, only show unpinned windows from the current workspace in addition to pinned items.</description>
+		</key>
+		<key name="display-name" type="s">
+			<default>''</default>
+			<summary>The name shown for this dock in preferences</summary>
+			<description>A friendly name for this dock. The internal dock id stays the same when this changes. Leave empty to use the dock id.</description>
 		</key>
 		<key name="dock-items" type="as">
 			<default>[]</default>
@@ -171,6 +186,11 @@
 			<default>false</default>
 			<summary>Show the item for the dock itself</summary>
 			<description>If true, show the Plank dock item.</description>
+		</key>
+		<key name="show-new-applications" type="b">
+			<default>true</default>
+			<summary>Show newly opened applications on the dock</summary>
+			<description>If true, applications opened while the dock is running automatically appear on the dock as unpinned items.</description>
 		</key>
 		<key name="theme" type="s">
 			<default>'Default'</default>

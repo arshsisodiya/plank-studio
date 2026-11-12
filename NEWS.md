@@ -2,6 +2,14 @@
 
 **Note:** There is no stability of ABI/API until further notice!
 
+## Unreleased
+
+- Run several docks from one Plank instance, each with its own settings, theme, position and items, managed from the new **Preferences → Docks** tab: add, rename, duplicate, enable or disable, and delete docks (up to 8, with at least one always enabled)
+- Add, reorder and remove a dock's files and folders from the new **Preferences → Items** tab, or drag files and folders onto it; each dock keeps its own launchers folder and item order
+- Keep docks on the same screen edge from overlapping, moving them apart automatically while the global "Keep docks from overlapping" option is on, and remember every dock's position across restarts
+- Route the D-Bus Items interface per dock, so clients can address a single dock; `get_instance()` and the existing single-dock behaviour are unchanged
+- Make a D-Bus item removal of a file or folder delete its dock item file too, so the item stays gone after a restart
+
 ## 0.11.178 "Reloaded" (2026-10-17)
 
 - Fix the FreeBSD build, broken since 0.11.176: GLib now restores the default action for SIGINT and SIGTERM itself, instead of a call that needed glibc's sighandler_t (thanks VVD)

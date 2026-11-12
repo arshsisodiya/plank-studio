@@ -22,23 +22,28 @@ namespace Plank {
    * A dock item for the dock itself.  Has things like about, help, quit etc.
    */
   public class PlankDockItem : DockItem {
-    static PlankDockItem? instance;
+    /**
+     * The dock this item belongs to, used to open the right preferences.
+     */
+    public DockController? controller { get; construct; }
 
-    public static unowned PlankDockItem get_instance () {
-      if (instance == null)
-        instance = new PlankDockItem ();
-
-      return instance;
-    }
-
-    PlankDockItem () {
-      GLib.Object (Prefs : new DockItemPreferences (), Text: "Plank", Icon: "plank");
+    public PlankDockItem (DockController? controller = null) {
+      GLib.Object (Prefs : new DockItemPreferences (), Text: "Plank", Icon: "plank",
+                   controller: controller);
     }
 
     construct
     {
       // if plank is pinned indicate that it is running while it isnt user-visible
       Indicator = IndicatorState.SINGLE;
+    }
+
+    void show_preferences () {
+      if (controller != null)
+        Application.get_default ().activate_action ("preferences-for-dock",
+                                                   new Variant.string (controller.name));
+      else
+        Application.get_default ().activate_action ("preferences", null);
     }
 
     /**
@@ -52,7 +57,7 @@ namespace Plank {
      * {@inheritDoc}
      */
     protected override AnimationType on_clicked (PopupButton button, Gdk.ModifierType mod, uint32 event_time) {
-      Application.get_default ().activate_action ("preferences", null);
+      show_preferences ();
 
       return AnimationType.DARKEN;
     }
@@ -74,7 +79,7 @@ namespace Plank {
       items.add (new Gtk.SeparatorMenuItem ());
 
       item = create_menu_item (_("_Preferences"), "preferences-system");
-      item.activate.connect (() => Application.get_default ().activate_action ("preferences", null));
+      item.activate.connect (show_preferences);
       items.add (item);
 
       item = create_menu_item (_("_About"), "help-about");
