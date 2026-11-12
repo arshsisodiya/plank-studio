@@ -425,7 +425,6 @@ namespace Plank {
       if (preferences_dlg != null && preferences_dlg.controller == dock) {
         if (primary_dock != null) {
           preferences_dlg.controller = primary_dock;
-          preferences_dlg.set_transient_for (primary_dock.window);
         } else {
           preferences_dlg.destroy ();
           preferences_dlg = null;
@@ -1250,15 +1249,16 @@ please read https://www.gnu.org/licenses/why-not-lgpl.html.""");
      * @param controller the dock to show preferences for
      */
     internal void show_preferences (DockController controller) {
+      // Do not make the dialog transient for the dock window: it is a
+      // dock-type window, so the window manager refuses to focus a dialog
+      // parented to it and leaves the preferences behind other windows.
       if (preferences_dlg != null) {
         preferences_dlg.controller = controller;
-        preferences_dlg.set_transient_for (controller.window);
-        preferences_dlg.show ();
+        preferences_dlg.present ();
         return;
       }
 
       preferences_dlg = new PreferencesWindow (controller);
-      preferences_dlg.set_transient_for (controller.window);
 
       preferences_dlg.destroy.connect (() => {
         preferences_dlg = null;
@@ -1269,7 +1269,7 @@ please read https://www.gnu.org/licenses/why-not-lgpl.html.""");
         preferences_dlg = null;
       });
 
-      preferences_dlg.show ();
+      preferences_dlg.present ();
     }
   }
 }

@@ -135,7 +135,7 @@ namespace Plank {
 
     construct
     {
-      var title = _("Preferences");
+      set_title (_("Plank Preferences"));
 
       prefs = controller.prefs;
       dock_manager = Factory.main.dock_manager;
