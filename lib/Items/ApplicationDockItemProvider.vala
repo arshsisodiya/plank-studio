@@ -160,6 +160,32 @@ namespace Plank {
     /**
      * {@inheritDoc}
      */
+    public override bool can_accept_drop (Gee.ArrayList<string> uris) {
+      foreach (var uri in uris) {
+        if (!is_valid_item_uri (uri))
+          continue;
+        if (!item_exists_for_uri (uri) || allow_duplicate_item (uri))
+          return true;
+      }
+
+      return false;
+    }
+
+    bool is_valid_item_uri (string uri) {
+      if (uri == null || uri == "")
+        return false;
+      if (uri.has_prefix (DOCKLET_URI_PREFIX))
+        return true;
+      if (uri.has_prefix ("http://") || uri.has_prefix ("https://"))
+        return false;
+
+      var file = File.new_for_uri (uri);
+      return !file.is_native () || file.query_exists ();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public override void prepare () {
       // Match running applications to their available dock-items
       foreach (var app in Matcher.get_default ().active_launchers ()) {

@@ -247,20 +247,207 @@ namespace Plank {
       // failed with INVALID_TIME anyway
     }
 
+    bool drag_target_supported = false;
+    bool external_drag_signals_connected = false;
+    int last_drag_x = -1;
+    int last_drag_y = -1;
+    uint32 last_drag_time = 0U;
+    Gdk.DragContext? active_drag_context = null;
+    Gdk.DragContext? pending_drop_context = null;
+    int pending_drop_x = -1;
+    int pending_drop_y = -1;
+    uint32 pending_drop_time = 0U;
+
+    void cancel_external_drag_idle () {
+      if (external_drag_idle_id > 0U) {
+        GLib.Source.remove (external_drag_idle_id);
+        external_drag_idle_id = 0U;
+      }
+    }
+
+    void connect_external_drag_signals () {
+      if (external_drag_signals_connected)
+        return;
+
+      external_drag_signals_connected = true;
+      controller.window.notify["HoveredItem"].connect (hovered_item_changed);
+      controller.window.notify["HoveredItemProvider"].connect (hovered_item_changed);
+    }
+
+    void disconnect_external_drag_signals () {
+      if (!external_drag_signals_connected)
+        return;
+
+      external_drag_signals_connected = false;
+      if (controller.window != null) {
+        controller.window.notify["HoveredItem"].disconnect (hovered_item_changed);
+        controller.window.notify["HoveredItemProvider"].disconnect (hovered_item_changed);
+      }
+    }
+
+    void reset_external_drag_state () {
+      if (drag_hover_timer_id > 0U) {
+        GLib.Source.remove (drag_hover_timer_id);
+        drag_hover_timer_id = 0U;
+      }
+
+      disconnect_external_drag_signals ();
+
+      drag_known = false;
+      drag_data_requested = false;
+      drag_target_supported = false;
+      drag_data = null;
+      cached_drop_item = null;
+      cached_drop_result = false;
+      last_drag_x = -1;
+      last_drag_y = -1;
+      last_drag_time = 0U;
+      active_drag_context = null;
+      pending_drop_context = null;
+      pending_drop_x = -1;
+      pending_drop_y = -1;
+      pending_drop_time = 0U;
+      DragNeedsCheck = true;
+    }
+
+    Gdk.DragAction choose_drag_action (Gdk.DragContext context) {
+      var actions = context.get_actions ();
+      if (Gdk.DragAction.COPY in actions)
+        return Gdk.DragAction.COPY;
+      if (Gdk.DragAction.MOVE in actions)
+        return Gdk.DragAction.MOVE;
+      if (Gdk.DragAction.LINK in actions)
+        return Gdk.DragAction.LINK;
+      if (Gdk.DragAction.PRIVATE in actions)
+        return Gdk.DragAction.PRIVATE;
+      return Gdk.DragAction.COPY;
+    }
+
+    bool can_accept_item_drop (DockItem? item) {
+      return (drag_data != null && DragNeedsCheck && item != null && drop_is_accepted_by (item));
+    }
+
+    unowned DockItemProvider? resolve_add_provider () {
+      if (controller.prefs.LockItems)
+        return null;
+
+      unowned DockWindow window = controller.window;
+      if (!controller.hide_manager.Hovered && window.HoveredItemProvider == null)
+        return null;
+
+      return window.HoveredItemProvider ?? controller.default_provider;
+    }
+
+    void update_external_drag_feedback (uint32 time_) {
+      if (!ExternalDragActive)
+        return;
+
+      unowned DockWindow window = controller.window;
+      unowned PositionManager position_manager = controller.position_manager;
+      unowned HoverWindow hover = controller.hover;
+      unowned DockItem? hovered_item = window.HoveredItem;
+
+      if (!drag_target_supported && !drag_data_requested) {
+        hover.hide ();
+        if (active_drag_context != null)
+          Gdk.drag_status (active_drag_context, 0, time_);
+        return;
+      }
+
+      if (drag_data == null) {
+        hover.hide ();
+        if (active_drag_context != null)
+          Gdk.drag_status (active_drag_context, choose_drag_action (active_drag_context), time_);
+        return;
+      }
+
+      if (can_accept_item_drop (hovered_item)) {
+        int hx, hy;
+        position_manager.get_hover_position (hovered_item, out hx, out hy);
+        hover.set_text (hovered_item.get_drop_text ());
+        hover.show_at (hx, hy, position_manager.Position);
+        if (active_drag_context != null)
+          Gdk.drag_status (active_drag_context, choose_drag_action (active_drag_context), time_);
+        return;
+      }
+
+      unowned DockItemProvider? provider = resolve_add_provider ();
+      if (provider != null && provider.can_accept_drop (drag_data)) {
+        if (last_drag_x >= 0 && last_drag_y >= 0) {
+          int hx = last_drag_x, hy = last_drag_y;
+          position_manager.get_hover_position_at (ref hx, ref hy);
+          hover.set_text (_("Drop to add to dock"));
+          hover.show_at (hx, hy, position_manager.Position);
+        }
+        if (active_drag_context != null)
+          Gdk.drag_status (active_drag_context, choose_drag_action (active_drag_context), time_);
+        return;
+      }
+
+      hover.hide ();
+      if (active_drag_context != null)
+        Gdk.drag_status (active_drag_context, 0, time_);
+    }
+
+    string[] extract_uris_from_selection (Gtk.SelectionData selection_data) {
+      string[] uris = selection_data.get_uris ();
+      if (uris.length > 0)
+        return uris;
+
+      unowned uint8[] raw = selection_data.get_data_with_length ();
+      if (raw.length <= 0)
+        return {};
+
+      var nul_terminated = new uint8[raw.length + 1];
+      Memory.copy (nul_terminated, raw, raw.length);
+      nul_terminated[raw.length] = 0;
+      return Uri.list_extract_uris ((string) nul_terminated);
+    }
+
+    void complete_drop (Gdk.DragContext context, int x, int y, uint32 time_) {
+      disconnect_external_drag_signals ();
+
+      if (drag_hover_timer_id > 0U) {
+        GLib.Source.remove (drag_hover_timer_id);
+        drag_hover_timer_id = 0U;
+      }
+
+      unowned DockWindow window = controller.window;
+      unowned HideManager hide_manager = controller.hide_manager;
+      controller.renderer.update_local_cursor (x, y);
+      hide_manager.update_hovered_with_coords (x, y);
+      window.update_hovered (x, y);
+
+      bool accepted = false;
+      if (drag_data != null && drag_data.size > 0) {
+        unowned DockItem? item = window.HoveredItem;
+        if (can_accept_item_drop (item)) {
+          accepted = item.accept_drop (drag_data);
+        } else {
+          unowned DockItemProvider? provider = resolve_add_provider ();
+          if (provider != null && provider.can_accept_drop (drag_data))
+            accepted = provider.accept_drop (drag_data);
+        }
+      }
+
+      Gtk.drag_finish (context, accepted, false, time_);
+
+      reset_external_drag_state ();
+      ExternalDragActive = false;
+      controller.hover.hide ();
+      controller.renderer.animated_draw ();
+      hide_manager.update_hovered ();
+    }
+
     [CCode (instance_pos = -1)]
     void drag_data_received (Gtk.Widget w, Gdk.DragContext context, int x, int y, Gtk.SelectionData selection_data, uint info, uint time_) {
       if (drag_data_requested) {
-        unowned string? data = (string?) selection_data.get_data ();
-        if (data == null) {
-          drag_data_requested = false;
-          Gdk.drag_status (context, Gdk.DragAction.COPY, time_);
-          return;
-        }
-
-        var uris = Uri.list_extract_uris (data);
-
         drag_data = new Gee.ArrayList<string> ();
-        foreach (unowned string s in uris) {
+        foreach (unowned string raw_uri in extract_uris_from_selection (selection_data)) {
+          var s = raw_uri.strip ();
+          if (s == "")
+            continue;
+
           if (s.has_prefix (DOCKLET_URI_PREFIX)) {
             drag_data.add (s);
             continue;
@@ -280,6 +467,16 @@ namespace Plank {
           DragNeedsCheck = true;
         }
 
+        if (pending_drop_context != null) {
+          var drop_ctx = pending_drop_context;
+          var drop_x = pending_drop_x;
+          var drop_y = pending_drop_y;
+          var drop_time = pending_drop_time;
+          pending_drop_context = null;
+          complete_drop (drop_ctx, drop_x, drop_y, drop_time);
+          return;
+        }
+
         // Force initial redraw for ExternalDrag to pick up new
         // drag_data for can_accept_drop check
         controller.renderer.animated_draw ();
@@ -287,33 +484,54 @@ namespace Plank {
         // Trigger this manually since we will miss to receive the very first emmit
         // after entering the dock-window
         hovered_item_changed ();
+        return;
       }
 
-      Gdk.drag_status (context, Gdk.DragAction.COPY, time_);
+      if (ExternalDragActive)
+        update_external_drag_feedback (time_);
+      else
+        Gdk.drag_status (context, choose_drag_action (context), time_);
     }
 
     [CCode (instance_pos = -1)]
     bool drag_drop (Gtk.Widget w, Gdk.DragContext context, int x, int y, uint time_) {
-      Gtk.drag_finish (context, true, false, time_);
+      cancel_external_drag_idle ();
 
       if (drag_hover_timer_id > 0U) {
         GLib.Source.remove (drag_hover_timer_id);
         drag_hover_timer_id = 0U;
       }
 
-      if (drag_data == null)
+      if (drag_data == null) {
+        if (!drag_data_requested) {
+          unowned DockWindow window = controller.window;
+          Gdk.Atom atom = Gtk.drag_dest_find_target (window, context, Gtk.drag_dest_get_target_list (window));
+          if (atom.name () != Gdk.Atom.NONE.name ()) {
+            drag_target_supported = true;
+            drag_data_requested = true;
+            pending_drop_context = context;
+            pending_drop_x = x;
+            pending_drop_y = y;
+            pending_drop_time = time_;
+            Gtk.drag_get_data (window, context, atom, time_);
+            return true;
+          }
+
+          Gtk.drag_finish (context, false, false, time_);
+          reset_external_drag_state ();
+          ExternalDragActive = false;
+          controller.hover.hide ();
+          return true;
+        }
+
+        pending_drop_context = context;
+        pending_drop_x = x;
+        pending_drop_y = y;
+        pending_drop_time = time_;
         return true;
+      }
 
-      unowned DockWindow window = controller.window;
-      unowned DockItem? item = window.HoveredItem;
-      unowned DockItemProvider? provider = window.HoveredItemProvider;
-
-      if (DragNeedsCheck && item != null && item.can_accept_drop (drag_data))
-        item.accept_drop (drag_data);
-      else if (!controller.prefs.LockItems && provider != null && provider.can_accept_drop (drag_data))
-        provider.accept_drop (drag_data);
-
-      ExternalDragActive = false;
+      complete_drop (context, x, y, time_);
       return true;
     }
 
@@ -380,17 +598,18 @@ namespace Plank {
       drag_known = false;
 
       if (ExternalDragActive) {
-        controller.window.notify["HoveredItem"].disconnect (hovered_item_changed);
-
         // Make sure ExternalDragActive gets set to false to reactivate HideManager.
         // This is needed while getting a leave event without followed by a drop.
         // Delay it to preserve functionality in drag_drop.
-        if (external_drag_idle_id > 0U)
-          GLib.Source.remove (external_drag_idle_id);
+        cancel_external_drag_idle ();
 
         external_drag_idle_id = Gdk.threads_add_idle (() => {
           external_drag_idle_id = 0U;
 
+          if (pending_drop_context != null || controller.window == null)
+            return false;
+
+          reset_external_drag_state ();
           ExternalDragActive = false;
 
           controller.hover.hide ();
@@ -427,6 +646,8 @@ namespace Plank {
 
     [CCode (instance_pos = -1)]
     bool drag_motion (Gtk.Widget w, Gdk.DragContext context, int x, int y, uint time_) {
+      cancel_external_drag_idle ();
+
       if (RepositionMode)
         return true;
 
@@ -442,45 +663,37 @@ namespace Plank {
       unowned HideManager hide_manager = controller.hide_manager;
 
       // we own the drag if InternalDragActive is true, lets not be silly
-      if (ExternalDragActive && !drag_known) {
+      bool starting_external_drag = (ExternalDragActive && !drag_known);
+      if (starting_external_drag) {
+        reset_external_drag_state ();
         drag_known = true;
-
-        window.notify["HoveredItem"].connect (hovered_item_changed);
-
-        Gdk.Atom atom = Gtk.drag_dest_find_target (window, context, Gtk.drag_dest_get_target_list (window));
-        if (atom.name () != Gdk.Atom.NONE.name ()) {
-          drag_data_requested = true;
-          Gtk.drag_get_data (window, context, atom, time_);
-        } else {
-          Gdk.drag_status (context, Gdk.DragAction.PRIVATE, time_);
-        }
-      } else {
-        Gdk.drag_status (context, Gdk.DragAction.COPY, time_);
       }
 
-      if (ExternalDragActive) {
-        unowned PositionManager position_manager = controller.position_manager;
-        unowned DockItem hovered_item = window.HoveredItem;
-        unowned HoverWindow hover = controller.hover;
-
-        if (drag_data != null && DragNeedsCheck && hovered_item != null && hovered_item.can_accept_drop (drag_data)) {
-          int hx, hy;
-          position_manager.get_hover_position (hovered_item, out hx, out hy);
-          hover.set_text (hovered_item.get_drop_text ());
-          hover.show_at (hx, hy, position_manager.Position);
-        } else if (hide_manager.Hovered && !controller.prefs.LockItems) {
-          int hx = x, hy = y;
-          position_manager.get_hover_position_at (ref hx, ref hy);
-          hover.set_text (_("Drop to add to dock"));
-          hover.show_at (hx, hy, position_manager.Position);
-        } else {
-          hover.hide ();
-        }
-      }
+      active_drag_context = context;
+      last_drag_x = x;
+      last_drag_y = y;
+      last_drag_time = time_;
 
       controller.renderer.update_local_cursor (x, y);
       hide_manager.update_hovered_with_coords (x, y);
       window.update_hovered (x, y);
+
+      if (starting_external_drag) {
+        connect_external_drag_signals ();
+
+        Gdk.Atom atom = Gtk.drag_dest_find_target (window, context, Gtk.drag_dest_get_target_list (window));
+        if (atom.name () != Gdk.Atom.NONE.name ()) {
+          drag_target_supported = true;
+          drag_data_requested = true;
+          Gtk.drag_get_data (window, context, atom, time_);
+        }
+      }
+
+      if (ExternalDragActive) {
+        update_external_drag_feedback (time_);
+      } else {
+        Gdk.drag_status (context, Gdk.DragAction.COPY, time_);
+      }
 
       return true;
     }
@@ -499,15 +712,19 @@ namespace Plank {
         drag_hover_timer_id = 0U;
       }
 
-      if (ExternalDragActive && drag_data != null)
-        drag_hover_timer_id = Gdk.threads_add_timeout (1500, () => {
-          unowned DockItem item = controller.window.HoveredItem;
-          if (item != null)
-            item.scrolled (Gdk.ScrollDirection.DOWN, 0, Gtk.get_current_event_time ());
-          else
-            drag_hover_timer_id = 0U;
-          return item != null;
-        });
+      if (ExternalDragActive) {
+        update_external_drag_feedback (last_drag_time);
+
+        if (drag_data != null)
+          drag_hover_timer_id = Gdk.threads_add_timeout (1500, () => {
+            unowned DockItem item = controller.window.HoveredItem;
+            if (item != null)
+              item.scrolled (Gdk.ScrollDirection.DOWN, 0, Gtk.get_current_event_time ());
+            else
+              drag_hover_timer_id = 0U;
+            return item != null;
+          });
+      }
     }
 
     Gdk.Window? best_proxy_window ()
@@ -568,7 +785,8 @@ namespace Plank {
     void enable_drag_to (DockWindow window) {
       Gtk.TargetEntry te1 = { "text/uri-list", 0, 0 };
       Gtk.TargetEntry te2 = { "text/plank-uri-list", 0, 0 };
-      Gtk.drag_dest_set (window, 0, { te1, te2 }, Gdk.DragAction.COPY);
+      Gtk.drag_dest_set (window, 0, { te1, te2 },
+                         Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK | Gdk.DragAction.PRIVATE);
     }
 
     void disable_drag_to (DockWindow window) {

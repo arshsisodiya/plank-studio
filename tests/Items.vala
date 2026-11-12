@@ -30,6 +30,7 @@ namespace PlankTests {
 
     Test.add_func ("/Items/DockItemProvider/basics", items_dockitemprovider);
     Test.add_func ("/Items/DockItemProvider/signals", items_dockitemprovider_signals);
+    Test.add_func ("/Items/DockItemProvider/drop_acceptance", items_dockitemprovider_drop_acceptance);
 
     Test.add_func ("/Items/ItemFactory/duplicates", items_itemfactory_duplicates);
   }
@@ -329,5 +330,38 @@ Exec=true --unity
     assert (((DockItem) elements[1]).DockItemFilename == separator.get_basename ());
     assert (((DockItem) elements[2]).DockItemFilename == separator_again.get_basename ());
     assert (!app.query_exists ());
+  }
+
+  class TestDropProvider : DockItemProvider {
+    public override bool add_item_with_uri (string uri, DockItem? target = null) {
+      if (uri == "docklet://fail")
+        return false;
+
+      var item = new TestDockItem ();
+      item.Prefs.Launcher = uri;
+      add (item, target);
+      return true;
+    }
+  }
+
+  void items_dockitemprovider_drop_acceptance () {
+    var app_uri = File.new_for_path (Config.DATA_DIR + "/test.desktop").get_uri ();
+    var uris = new Gee.ArrayList<string> ();
+    uris.add (app_uri);
+
+    var base_provider = new DockItemProvider ();
+    assert (base_provider.can_accept_drop (uris) == true);
+    assert (base_provider.accept_drop (uris) == false);
+
+    var test_provider = new TestDropProvider ();
+    var fail_uris = new Gee.ArrayList<string> ();
+    fail_uris.add ("docklet://fail");
+    assert (test_provider.accept_drop (fail_uris) == false);
+
+    var mixed_uris = new Gee.ArrayList<string> ();
+    mixed_uris.add ("docklet://fail");
+    mixed_uris.add (app_uri);
+    assert (test_provider.accept_drop (mixed_uris) == true);
+    assert (test_provider.item_exists_for_uri (app_uri) == true);
   }
 }

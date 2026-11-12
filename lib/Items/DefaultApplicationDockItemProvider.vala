@@ -376,5 +376,60 @@ namespace Plank {
 
       resume_items_monitor ();
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public override bool can_accept_drop (Gee.ArrayList<string> uris) {
+      if (base.can_accept_drop (uris))
+        return true;
+
+      foreach (var uri in uris) {
+        if (item_for_uri (uri) is TransientDockItem)
+          return true;
+      }
+
+      return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public override bool add_item_with_uri (string uri, DockItem? target = null) {
+      if (uri == null || uri == "")
+        return false;
+
+      unowned DockItem? existing = item_for_uri (uri);
+      if (existing is TransientDockItem) {
+        if (target != null && target != existing && internal_elements.contains (target))
+          move_to (existing, target);
+        pin_item (existing);
+        return !(item_for_uri (uri) is TransientDockItem);
+      }
+
+      return base.add_item_with_uri (uri, target);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public override bool accept_drop (Gee.ArrayList<string> uris) {
+      unowned DockItem? target_item = null;
+      unowned DockController? controller = get_dock ();
+      if (controller != null && controller.window.HoveredItemProvider == this) {
+        target_item = controller.position_manager.get_current_target_item (this);
+      }
+
+      bool result = base.accept_drop (uris);
+
+      foreach (var uri in uris) {
+        if (item_for_uri (uri) is TransientDockItem) {
+          if (add_item_with_uri (uri, target_item))
+            result = true;
+        }
+      }
+
+      return result;
+    }
   }
 }

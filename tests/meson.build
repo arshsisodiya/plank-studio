@@ -45,6 +45,22 @@ dock_bin = executable(
   dependencies: [plank_dep, plank_base_dep],
 )
 
+dnd_bin_sources = [
+  'DnD.vala',
+]
+
+dnd_bin = executable(
+  'dnd-tests',
+  dnd_bin_sources,
+  'test-config.vapi',
+  plank_gschema_compile,
+  dependencies: [plank_dep, plank_internal_dep, plank_base_dep],
+  c_args: [
+    '-DTEST_DATA_DIR="@0@/tests/data"'.format(meson.project_source_root()),
+    '-DTEST_HOME_DIR="@0@"'.format(test_home),
+  ],
+)
+
 test_env = environment()
 test_env.set('HOME', test_home)
 test_env.set('XDG_DATA_HOME', test_home / '.local' / 'share')
@@ -128,6 +144,24 @@ if get_option('enable-headless-tests')
     timeout: 60,
     is_parallel: false,
   )
+
+  # Provider DnD test
+  test(
+    'dnd-tests',
+    xvfb_run,
+    args: [
+      '--auto-servernum',
+      '--server-args=-screen 0 1280x1024x24',
+      dbus_run.full_path(),
+      dnd_bin.full_path(),
+    ],
+    env: test_env,
+    workdir: meson.current_build_dir(),
+    depends: [clean_test_dir],
+    protocol: 'tap',
+    timeout: 60,
+    is_parallel: false,
+  )
 else
   # Regular tests use the real display, but a private session bus when
   # dbus-run-session is available, so services the dock talks to (like BAMF,
@@ -138,11 +172,15 @@ else
     tests_args = [tests_bin.full_path()]
     dock_exe = dbus_run
     dock_args = [dock_bin.full_path(), '-n', 'test1']
+    dnd_exe = dbus_run
+    dnd_args = [dnd_bin.full_path()]
   else
     tests_exe = tests_bin
     tests_args = []
     dock_exe = dock_bin
     dock_args = ['-n', 'test1']
+    dnd_exe = dnd_bin
+    dnd_args = []
   endif
 
   test(
@@ -153,6 +191,18 @@ else
     workdir: meson.current_build_dir(),
     depends: [clean_test_dir],
     protocol: 'tap',
+    is_parallel: false,
+  )
+
+  test(
+    'dnd-tests',
+    dnd_exe,
+    args: dnd_args,
+    env: test_env,
+    workdir: meson.current_build_dir(),
+    depends: [clean_test_dir],
+    protocol: 'tap',
+    is_parallel: false,
   )
 
   test(
@@ -163,5 +213,6 @@ else
     workdir: meson.current_build_dir(),
     depends: [clean_test_dir],
     protocol: 'exitcode',
+    is_parallel: false,
   )
 endif

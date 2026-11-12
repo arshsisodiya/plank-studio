@@ -68,9 +68,8 @@ namespace Plank {
 
     public override bool can_accept_drop (Gee.ArrayList<string> uris) {
       foreach (var uri in uris) {
-        if (!item_exists_for_uri (uri) || allow_duplicate_item (uri)) {
+        if (!item_exists_for_uri (uri) || allow_duplicate_item (uri))
           return true;
-        }
       }
 
       return false;
@@ -87,8 +86,8 @@ namespace Plank {
 
       foreach (var uri in uris) {
         if (!item_exists_for_uri (uri) || allow_duplicate_item (uri)) {
-          add_item_with_uri (uri, target_item);
-          result = true;
+          if (add_item_with_uri (uri, target_item))
+            result = true;
         }
       }
 
