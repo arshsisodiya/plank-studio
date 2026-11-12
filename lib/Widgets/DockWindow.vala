@@ -62,6 +62,7 @@ namespace Plank {
      */
     Gtk.Menu? menu;
     Gee.ArrayList<Gtk.MenuItem>? menu_items;
+    DockItem? menu_owner;
 
     uint hover_reposition_timer_id = 0U;
 
@@ -124,6 +125,7 @@ namespace Plank {
         menu.hide.disconnect (on_menu_hide);
         menu.destroy ();
       }
+      menu_owner = null;
 
       controller.prefs.notify["HideMode"].disconnect (update_struts);
 
@@ -745,12 +747,16 @@ namespace Plank {
       }
 
       menu_items = null;
+      menu_owner = null;
       var position_menu = false;
       var button = PopupButton.from_event_button (event);
 
       if ((button & PopupButton.RIGHT) != 0
           && (item == null || (event.state & Gdk.ModifierType.CONTROL_MASK) != 0)) {
-        menu_items = Factory.item_factory.get_item_for_dock (controller).get_menu_items ();
+        // Retain the item across menu hide and activate, since Gtk.Menu emits
+        // hide before activate on the chosen Gtk.MenuItem.
+        menu_owner = Factory.item_factory.get_item_for_dock (controller);
+        menu_items = menu_owner.get_menu_items ();
         if (controller.prefs.StackMode) {
           var toggle_item = new Gtk.MenuItem.with_label (
             controller.StackExpanded ? _("Collapse Stack") : _("Expand Stack")
@@ -767,6 +773,7 @@ namespace Plank {
         set_hovered_provider (null);
         set_hovered (null);
       } else if (item != null && item.is_valid () && (item.Button & button) != 0) {
+        menu_owner = item;
         menu_items = item.get_menu_items ();
         if ((event.state & Gdk.ModifierType.MOD1_MASK) != 0
             && (event.state & Gdk.ModifierType.SHIFT_MASK) != 0)

@@ -498,15 +498,18 @@ namespace Plank {
      * Displays the about dialog.
      */
     void show_about () {
+      // Do not make the dialog transient for the dock window: it is a
+      // dock-type window, so the window manager can refuse focus or leave
+      // dialogs parented to it behind other windows.
       if (about_dlg != null) {
         about_dlg.show_all ();
+        about_dlg.present ();
         return;
       }
 
       about_dlg = new Gtk.AboutDialog ();
       about_dlg.window_position = Gtk.WindowPosition.CENTER;
       about_dlg.gravity = Gdk.Gravity.CENTER;
-      about_dlg.set_transient_for (primary_dock.window);
 
       about_dlg.set_program_name (exec_name);
       about_dlg.set_version ("%s\n%s".printf (build_version, build_version_info));
@@ -1241,6 +1244,7 @@ please read https://www.gnu.org/licenses/why-not-lgpl.html.""");
       });
 
       about_dlg.show_all ();
+      about_dlg.present ();
     }
 
     /**

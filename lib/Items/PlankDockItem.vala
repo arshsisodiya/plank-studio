@@ -38,12 +38,25 @@ namespace Plank {
       Indicator = IndicatorState.SINGLE;
     }
 
-    void show_preferences () {
-      if (controller != null)
-        Application.get_default ().activate_action ("preferences-for-dock",
-                                                   new Variant.string (controller.name));
+    static void activate_app_action (string action_name) {
+      unowned GLib.Application? app = Application.get_default ();
+      if (app != null)
+        app.activate_action (action_name, null);
+    }
+
+    static void activate_preferences (string? dock_name) {
+      unowned GLib.Application? app = Application.get_default ();
+      if (app == null)
+        return;
+
+      if (dock_name != null)
+        app.activate_action ("preferences-for-dock", new Variant.string (dock_name));
       else
-        Application.get_default ().activate_action ("preferences", null);
+        app.activate_action ("preferences", null);
+    }
+
+    void show_preferences () {
+      activate_preferences (controller != null ? controller.name : null);
     }
 
     /**
@@ -67,23 +80,27 @@ namespace Plank {
      */
     public override Gee.ArrayList<Gtk.MenuItem> get_menu_items () {
       var items = new Gee.ArrayList<Gtk.MenuItem> ();
+      // Capture dock_name locally rather than referencing `this` in signal
+      // handlers; otherwise transient instances from get_item_for_dock() are
+      // unreffed immediately and g_signal_connect_object disconnects every item.
+      string? dock_name = controller != null ? controller.name : null;
 
       var item = create_menu_item (_("Get _Help Online..."), "help-browser");
-      item.activate.connect (() => Application.get_default ().activate_action ("help", null));
+      item.activate.connect (() => activate_app_action ("help"));
       items.add (item);
 
       item = create_menu_item (_("_Translate This Application..."), "preferences-desktop-locale");
-      item.activate.connect (() => Application.get_default ().activate_action ("translate", null));
+      item.activate.connect (() => activate_app_action ("translate"));
       items.add (item);
 
       items.add (new Gtk.SeparatorMenuItem ());
 
       item = create_menu_item (_("_Preferences"), "preferences-system");
-      item.activate.connect (show_preferences);
+      item.activate.connect (() => activate_preferences (dock_name));
       items.add (item);
 
       item = create_menu_item (_("_About"), "help-about");
-      item.activate.connect (() => Application.get_default ().activate_action ("about", null));
+      item.activate.connect (() => activate_app_action ("about"));
       items.add (item);
 
       // No explicit quit-item on elementary OS
@@ -91,7 +108,7 @@ namespace Plank {
         items.add (new Gtk.SeparatorMenuItem ());
 
         item = create_menu_item (_("_Quit"), "application-exit");
-        item.activate.connect (() => Application.get_default ().activate_action ("quit", null));
+        item.activate.connect (() => activate_app_action ("quit"));
         items.add (item);
       }
 

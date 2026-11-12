@@ -33,6 +33,7 @@ namespace PlankTests {
     Test.add_func ("/Items/DockItemProvider/drop_acceptance", items_dockitemprovider_drop_acceptance);
 
     Test.add_func ("/Items/ItemFactory/duplicates", items_itemfactory_duplicates);
+    Test.add_func ("/Items/PlankDockItem/menu_lifetime", items_plankdockitem_menu_lifetime);
   }
 
   void items_dockitem () {
@@ -363,5 +364,46 @@ Exec=true --unity
     mixed_uris.add (app_uri);
     assert (test_provider.accept_drop (mixed_uris) == true);
     assert (test_provider.item_exists_for_uri (app_uri) == true);
+  }
+
+  void items_plankdockitem_menu_lifetime () {
+    unowned GLib.Application? prev_app = GLib.Application.get_default ();
+    var app = new GLib.Application ("net.launchpad.plank.menutest", GLib.ApplicationFlags.FLAGS_NONE);
+    try {
+      app.register ();
+    } catch (Error e) {
+      assert_not_reached ();
+    }
+    GLib.Application.set_default (app);
+
+    var activated = new Gee.ArrayList<string> ();
+    foreach (string name in new string[] { "help", "translate", "preferences", "about", "quit" }) {
+      var action = new SimpleAction (name, null);
+      string action_name = name;
+      action.activate.connect (() => activated.add (action_name));
+      app.add_action (action);
+    }
+
+    // Drop the PlankDockItem reference before activating the returned Gtk.MenuItems,
+    // matching DockWindow.show_menu() calling get_item_for_dock().get_menu_items().
+    var menu_items = new PlankDockItem (null).get_menu_items ();
+    assert (menu_items.size >= 4);
+
+    uint activate_signal = Signal.lookup ("activate", typeof (Gtk.MenuItem));
+    foreach (Gtk.MenuItem item in menu_items) {
+      if (item is Gtk.SeparatorMenuItem)
+        continue;
+      assert (Signal.has_handler_pending (item, activate_signal, 0, true));
+      item.activate ();
+    }
+
+    assert (activated.contains ("help"));
+    assert (activated.contains ("translate"));
+    assert (activated.contains ("preferences"));
+    assert (activated.contains ("about"));
+    if (!environment_is_session_desktop (XdgSessionDesktop.PANTHEON))
+      assert (activated.contains ("quit"));
+
+    GLib.Application.set_default (prev_app);
   }
 }
