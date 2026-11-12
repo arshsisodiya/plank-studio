@@ -106,11 +106,26 @@ namespace Plank {
     unowned Gtk.Switch sw_zoom_enabled;
     [GtkChild]
     unowned Gtk.Switch sw_bring_to_workspace;
+    [GtkChild]
+    unowned Gtk.Switch sw_show_dock_item;
 
     [GtkChild]
     unowned Gtk.IconView view_docklets;
     [GtkChild]
-    unowned Gtk.Stack dock_preferences;
+    unowned Gtk.Box page_items;
+
+    [GtkChild]
+    unowned Gtk.ListBox list_docks;
+    [GtkChild]
+    unowned Gtk.Button btn_add_dock;
+    [GtkChild]
+    unowned Gtk.Switch sw_avoid_overlap;
+    [GtkChild]
+    unowned Gtk.Label l_current_dock;
+    [GtkChild]
+    unowned Gtk.Label l_current_dock_detail;
+    [GtkChild]
+    unowned Gtk.MenuButton btn_dock_menu;
 
     DockManager dock_manager;
 
@@ -120,8 +135,9 @@ namespace Plank {
      */
     DockController? bound_controller;
 
-    Gtk.ListBox? list_docks;
-    Gtk.Switch? sw_avoid_overlap;
+    Gee.ArrayList<string> sidebar_dock_ids = new Gee.ArrayList<string> ();
+    bool refreshing_docks = false;
+
     Gtk.ListBox? list_items;
     Gtk.Button? btn_add_file;
     Gtk.Button? btn_add_folder;
@@ -142,14 +158,17 @@ namespace Plank {
 
       bound_controller = controller;
 
+      init_docks_sidebar ();
+      init_dock_menu ();
       init_dock_tab ();
-      init_docks_tab ();
       init_items_tab ();
       init_docklets_tab ();
       connect_signals ();
 
       notify["controller"].connect (controller_changed);
       destroy.connect (cleanup);
+
+      update_header ();
     }
 
     void controller_changed () {
@@ -164,6 +183,7 @@ namespace Plank {
 
       init_dock_tab ();
       bind_items_provider ();
+      update_header ();
       refresh_docks_list ();
       connect_signals ();
     }
@@ -257,8 +277,12 @@ namespace Plank {
       case "ShowNewApplications":
         sw_show_new_applications.set_active (prefs.ShowNewApplications);
         break;
+      case "ShowDockItem":
+        sw_show_dock_item.set_active (prefs.ShowDockItem);
+        break;
       case "Position":
         cb_position.active_id = ((int) prefs.Position).to_string ();
+        update_header ();
         break;
       case "AreaMode":
         cb_area_mode.active_id = ((int) prefs.AreaMode).to_string ();
@@ -273,6 +297,10 @@ namespace Plank {
             cb_theme.set_active (pos);
           pos++;
         }
+        update_header ();
+        break;
+      case "DisplayName":
+        update_header ();
         break;
       case "HideDelay":
         adj_hide_delay.value = prefs.HideDelay;
@@ -371,6 +399,10 @@ namespace Plank {
 
     void show_new_applications_toggled (GLib.Object widget, ParamSpec param) {
       prefs.ShowNewApplications = ((Gtk.Switch) widget).get_active ();
+    }
+
+    void show_dock_item_toggled (GLib.Object widget, ParamSpec param) {
+      prefs.ShowDockItem = ((Gtk.Switch) widget).get_active ();
     }
 
     void lock_items_toggled (GLib.Object widget, ParamSpec param) {
@@ -527,6 +559,7 @@ namespace Plank {
       sw_bring_to_workspace.notify["active"].connect (bring_to_workspace_toggled);
       sw_show_unpinned.notify["active"].connect (show_unpinned_toggled);
       sw_show_new_applications.notify["active"].connect (show_new_applications_toggled);
+      sw_show_dock_item.notify["active"].connect (show_dock_item_toggled);
       sw_lock_items.notify["active"].connect (lock_items_toggled);
       sw_tooltips_enabled.notify["active"].connect (tooltips_enabled_toggled);
       sw_previews_enabled.notify["active"].connect (previews_enabled_toggled);
@@ -565,6 +598,7 @@ namespace Plank {
       sw_bring_to_workspace.notify["active"].disconnect (bring_to_workspace_toggled);
       sw_show_unpinned.notify["active"].disconnect (show_unpinned_toggled);
       sw_show_new_applications.notify["active"].disconnect (show_new_applications_toggled);
+      sw_show_dock_item.notify["active"].disconnect (show_dock_item_toggled);
       sw_lock_items.notify["active"].disconnect (lock_items_toggled);
       sw_tooltips_enabled.notify["active"].disconnect (tooltips_enabled_toggled);
       sw_previews_enabled.notify["active"].disconnect (previews_enabled_toggled);
@@ -624,6 +658,7 @@ namespace Plank {
       sw_bring_to_workspace.set_active (prefs.BringToCurrentWorkspace);
       sw_show_unpinned.set_active (!prefs.PinnedOnly);
       sw_show_new_applications.set_active (prefs.ShowNewApplications);
+      sw_show_dock_item.set_active (prefs.ShowDockItem);
       sw_lock_items.set_active (prefs.LockItems);
       sw_tooltips_enabled.set_active (prefs.TooltipsEnabled);
       sw_previews_enabled.set_active (prefs.PreviewsEnabled);
@@ -639,6 +674,240 @@ namespace Plank {
       cb_items_alignment.active_id = ((int) prefs.ItemsAlignment).to_string ();
       cb_items_alignment.sensitive = (prefs.Alignment == Gtk.Align.FILL);
     }
+
+    //
+    // Docks sidebar
+    //
+
+    void init_docks_sidebar () {
+      list_docks.set_activate_on_single_click (true);
+      list_docks.row_selected.connect (dock_row_selected);
+      btn_add_dock.clicked.connect (add_dock_clicked);
+
+      sw_avoid_overlap.set_active (dock_manager.get_avoid_overlap ());
+      sw_avoid_overlap.notify["active"].connect (avoid_overlap_toggled);
+
+      dock_manager.docks_changed.connect (refresh_docks_list);
+      refresh_docks_list ();
+    }
+
+    void init_dock_menu () {
+      var menu = new Gtk.Menu ();
+
+      var rename_item = new Gtk.MenuItem.with_label (_("Rename Dock..."));
+      rename_item.activate.connect (() => rename_dock_clicked (controller.name));
+      menu.append (rename_item);
+
+      var duplicate_item = new Gtk.MenuItem.with_label (_("Duplicate Dock"));
+      duplicate_item.activate.connect (() => duplicate_dock_clicked (controller.name));
+      menu.append (duplicate_item);
+
+      menu.append (new Gtk.SeparatorMenuItem ());
+
+      var delete_item = new Gtk.MenuItem.with_label (_("Delete Dock..."));
+      delete_item.activate.connect (() => delete_dock_clicked (controller.name));
+      menu.append (delete_item);
+
+      menu.show_all ();
+      btn_dock_menu.set_popup (menu);
+    }
+
+    void avoid_overlap_toggled (GLib.Object widget, ParamSpec prop) {
+      if (sw_avoid_overlap == null)
+        return;
+
+      dock_manager.set_avoid_overlap (sw_avoid_overlap.get_active ());
+    }
+
+    void refresh_docks_list () {
+      if (list_docks == null)
+        return;
+
+      var selected_id = controller.name;
+
+      refreshing_docks = true;
+
+      Gtk.ListBoxRow? row;
+      while ((row = list_docks.get_row_at_index (0)) != null)
+        list_docks.remove (row);
+
+      sidebar_dock_ids.clear ();
+
+      Gtk.ListBoxRow? selected_row = null;
+      foreach (unowned string id in dock_manager.get_known_docks ()) {
+        var dock_row = make_dock_row (id);
+        list_docks.add (dock_row);
+        sidebar_dock_ids.add (id);
+        dock_row.show_all ();
+
+        if (id == selected_id)
+          selected_row = dock_row;
+      }
+
+      if (selected_row != null)
+        list_docks.select_row (selected_row);
+      else if (list_docks.get_row_at_index (0) != null)
+        list_docks.select_row (list_docks.get_row_at_index (0));
+
+      refreshing_docks = false;
+    }
+
+    Gtk.ListBoxRow make_dock_row (string dock_id) {
+      var row = new Gtk.ListBoxRow ();
+      row.selectable = dock_manager.is_enabled (dock_id);
+      row.set_tooltip_text (row.selectable
+        ? _("Edit this dock's settings")
+        : _("Enable this dock to edit its settings"));
+
+      var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+      box.margin = 8;
+
+      var icon = new Gtk.Image.from_icon_name ("video-display-symbolic", Gtk.IconSize.BUTTON);
+      icon.valign = Gtk.Align.CENTER;
+      box.pack_start (icon, false, false, 0);
+
+      var labels = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
+      labels.hexpand = true;
+
+      var display_name = dock_manager.get_display_name (dock_id);
+
+      var name = new Gtk.Label ("");
+      name.set_markup ("<b>%s</b>".printf (GLib.Markup.escape_text (display_name)));
+      name.halign = Gtk.Align.START;
+      name.set_ellipsize (Pango.EllipsizeMode.END);
+      labels.pack_start (name, false, false, 0);
+
+      // Only show the internal id when the user gave the dock a different name
+      if (display_name != dock_id) {
+        var id_label = new Gtk.Label (dock_id);
+        id_label.halign = Gtk.Align.START;
+        id_label.set_ellipsize (Pango.EllipsizeMode.END);
+        id_label.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
+        labels.pack_start (id_label, false, false, 0);
+      }
+
+      box.pack_start (labels, true, true, 0);
+
+      var enabled = new Gtk.Switch ();
+      enabled.valign = Gtk.Align.CENTER;
+      enabled.set_active (dock_manager.is_enabled (dock_id));
+      enabled.tooltip_text = _("Show this dock");
+      enabled.notify["active"].connect ((o, ps) => dock_enabled_toggled (dock_id, enabled));
+      box.pack_end (enabled, false, false, 0);
+
+      row.add (box);
+      return row;
+    }
+
+    void dock_row_selected (Gtk.ListBoxRow? row) {
+      if (refreshing_docks || row == null)
+        return;
+
+      var index = row.get_index ();
+      if (index < 0 || index >= sidebar_dock_ids.size)
+        return;
+
+      var dock_id = sidebar_dock_ids[index];
+      if (dock_id == controller.name)
+        return;
+
+      select_dock (dock_id);
+    }
+
+    void select_dock (string dock_id) {
+      var dock = Factory.main.find_dock (dock_id);
+      if (dock != null)
+        controller = dock;
+    }
+
+    void dock_enabled_toggled (string dock_id, Gtk.Switch widget) {
+      var wanted = widget.get_active ();
+      if (wanted == dock_manager.is_enabled (dock_id))
+        return;
+
+      if (!dock_manager.set_enabled (dock_id, wanted)) {
+        widget.set_active (dock_manager.is_enabled (dock_id));
+        if (!wanted)
+          show_message (_("At least one dock has to stay enabled."));
+        else
+          show_message (_("Could not enable this dock."));
+        return;
+      }
+
+      if (wanted)
+        select_dock (dock_id);
+    }
+
+    void add_dock_clicked () {
+      var name = prompt_for_name (_("Add Dock"), _("Name for the new dock:"), "");
+      if (name == null)
+        return;
+
+      var dock_id = dock_manager.create_dock (name);
+      if (dock_id == null) {
+        show_message (_("Could not add a dock. Plank supports at most %d docks.").printf (DockManager.MAX_DOCKS));
+        return;
+      }
+
+      select_dock (dock_id);
+    }
+
+    void duplicate_dock_clicked (string dock_id) {
+      var new_id = dock_manager.duplicate_dock (dock_id);
+      if (new_id == null) {
+        show_message (_("Could not duplicate this dock. Plank supports at most %d docks.").printf (DockManager.MAX_DOCKS));
+        return;
+      }
+
+      select_dock (new_id);
+    }
+
+    void rename_dock_clicked (string dock_id) {
+      var current = dock_manager.get_display_name (dock_id);
+      var name = prompt_for_name (_("Rename Dock"), _("Name for this dock:"), current);
+      if (name == null)
+        return;
+
+      dock_manager.rename_dock (dock_id, name);
+      update_header ();
+    }
+
+    void delete_dock_clicked (string dock_id) {
+      var display_name = dock_manager.get_display_name (dock_id);
+
+      if (!confirm (_("Delete the dock \"%s\"?").printf (display_name),
+                    _("Its settings and items will be removed permanently.")))
+        return;
+
+      if (!dock_manager.delete_dock (dock_id))
+        show_message (_("At least one dock has to remain."));
+    }
+
+    void update_header () {
+      if (prefs == null)
+        return;
+
+      l_current_dock.set_markup ("<b>%s</b>".printf (GLib.Markup.escape_text (dock_manager.get_display_name (controller.name))));
+      l_current_dock_detail.set_text ("%s · %s · %s".printf (controller.name, position_label (prefs.Position), prefs.Theme));
+    }
+
+    string position_label (Gtk.PositionType position) {
+      switch (position) {
+      case Gtk.PositionType.LEFT:
+        return _("Left edge");
+      case Gtk.PositionType.RIGHT:
+        return _("Right edge");
+      case Gtk.PositionType.TOP:
+        return _("Top edge");
+      case Gtk.PositionType.BOTTOM:
+      default:
+        return _("Bottom edge");
+      }
+    }
+
+    //
+    // Docklets tab
+    //
 
     void init_docklets_tab () {
       var model_docklets = new DockletViewModel ();
@@ -662,195 +931,6 @@ namespace Plank {
     }
 
     //
-    // Docks tab
-    //
-
-    void init_docks_tab () {
-      if (list_docks != null) {
-        refresh_docks_list ();
-        return;
-      }
-
-      var page = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
-      page.margin = 16;
-      page.set_size_request (520, 360);
-
-      var overlap_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-      var overlap_label = new Gtk.Label (_("Keep docks from overlapping"));
-      overlap_label.halign = Gtk.Align.START;
-      overlap_row.pack_start (overlap_label, true, true, 0);
-
-      sw_avoid_overlap = new Gtk.Switch ();
-      sw_avoid_overlap.valign = Gtk.Align.CENTER;
-      sw_avoid_overlap.set_active (dock_manager.get_avoid_overlap ());
-      sw_avoid_overlap.notify["active"].connect (avoid_overlap_toggled);
-      overlap_row.pack_end (sw_avoid_overlap, false, false, 0);
-      page.pack_start (overlap_row, false, false, 0);
-
-      var hint = new Gtk.Label (_("Docks whose visible areas would overlap are moved apart automatically."));
-      hint.halign = Gtk.Align.START;
-      hint.xalign = 0.0f;
-      hint.set_line_wrap (true);
-      hint.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
-      page.pack_start (hint, false, false, 0);
-
-      var scrolled = new Gtk.ScrolledWindow (null, null);
-      scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-      scrolled.set_shadow_type (Gtk.ShadowType.IN);
-      scrolled.set_min_content_height (240);
-
-      list_docks = new Gtk.ListBox ();
-      list_docks.set_selection_mode (Gtk.SelectionMode.NONE);
-      list_docks.set_activate_on_single_click (false);
-      scrolled.add (list_docks);
-      page.pack_start (scrolled, true, true, 0);
-
-      var buttons = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-      var add_button = new Gtk.Button.with_label (_("Add Dock"));
-      add_button.tooltip_text = _("Create another dock with its own settings and items");
-      add_button.clicked.connect (add_dock_clicked);
-      buttons.pack_end (add_button, false, false, 0);
-      page.pack_start (buttons, false, false, 0);
-
-      dock_preferences.add_titled (page, "docks", _("Docks"));
-      page.show_all ();
-
-      dock_manager.docks_changed.connect (refresh_docks_list);
-      refresh_docks_list ();
-    }
-
-    void avoid_overlap_toggled (GLib.Object widget, ParamSpec prop) {
-      if (sw_avoid_overlap == null)
-        return;
-
-      dock_manager.set_avoid_overlap (sw_avoid_overlap.get_active ());
-    }
-
-    void refresh_docks_list () {
-      if (list_docks == null)
-        return;
-
-      Gtk.ListBoxRow? row;
-      while ((row = list_docks.get_row_at_index (0)) != null)
-        list_docks.remove (row);
-
-      foreach (unowned string id in dock_manager.get_known_docks ()) {
-        var dock_id = id;
-        var dock_row = make_dock_row (dock_id);
-        list_docks.add (dock_row);
-        dock_row.show_all ();
-      }
-    }
-
-    Gtk.ListBoxRow make_dock_row (string dock_id) {
-      var row = new Gtk.ListBoxRow ();
-      row.activatable = false;
-
-      var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-      box.margin = 6;
-
-      var labels = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
-      labels.hexpand = true;
-
-      var name = new Gtk.Label ("");
-      name.set_markup ("<b>%s</b>".printf (GLib.Markup.escape_text (dock_manager.get_display_name (dock_id))));
-      name.halign = Gtk.Align.START;
-      name.set_ellipsize (Pango.EllipsizeMode.END);
-      labels.pack_start (name, false, false, 0);
-
-      var id_label = new Gtk.Label (dock_id);
-      id_label.halign = Gtk.Align.START;
-      id_label.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
-      labels.pack_start (id_label, false, false, 0);
-
-      box.pack_start (labels, true, true, 0);
-
-      var enabled = new Gtk.Switch ();
-      enabled.valign = Gtk.Align.CENTER;
-      enabled.set_active (dock_manager.is_enabled (dock_id));
-      enabled.tooltip_text = _("Show this dock");
-      enabled.notify["active"].connect ((o, ps) => dock_enabled_toggled (dock_id, enabled));
-      box.pack_start (enabled, false, false, 0);
-
-      var prefs_button = new Gtk.Button.with_label (_("Preferences"));
-      prefs_button.tooltip_text = _("Edit this dock's settings");
-      prefs_button.clicked.connect (() => open_dock_preferences (dock_id));
-      box.pack_start (prefs_button, false, false, 0);
-
-      var duplicate_button = new Gtk.Button.with_label (_("Duplicate"));
-      duplicate_button.tooltip_text = _("Copy this dock's settings and items into a new dock");
-      duplicate_button.clicked.connect (() => duplicate_dock_clicked (dock_id));
-      box.pack_start (duplicate_button, false, false, 0);
-
-      var rename_button = new Gtk.Button.with_label (_("Rename"));
-      rename_button.clicked.connect (() => rename_dock_clicked (dock_id));
-      box.pack_start (rename_button, false, false, 0);
-
-      var delete_button = new Gtk.Button.with_label (_("Delete"));
-      delete_button.clicked.connect (() => delete_dock_clicked (dock_id));
-      box.pack_start (delete_button, false, false, 0);
-
-      row.add (box);
-      return row;
-    }
-
-    void dock_enabled_toggled (string dock_id, Gtk.Switch widget) {
-      var wanted = widget.get_active ();
-      if (wanted == dock_manager.is_enabled (dock_id))
-        return;
-
-      if (!dock_manager.set_enabled (dock_id, wanted)) {
-        widget.set_active (dock_manager.is_enabled (dock_id));
-        if (!wanted)
-          show_message (_("At least one dock has to stay enabled."));
-        else
-          show_message (_("Could not enable this dock."));
-      }
-    }
-
-    void open_dock_preferences (string dock_id) {
-      var dock = Factory.main.find_dock (dock_id);
-      if (dock == null || dock == controller)
-        return;
-
-      Factory.main.show_preferences (dock);
-    }
-
-    void add_dock_clicked () {
-      var name = prompt_for_name (_("Add Dock"), _("Name for the new dock:"), "");
-      if (name == null)
-        return;
-
-      if (dock_manager.create_dock (name) == null)
-        show_message (_("Could not add a dock. Plank supports at most %d docks.").printf (DockManager.MAX_DOCKS));
-    }
-
-    void duplicate_dock_clicked (string dock_id) {
-      if (dock_manager.duplicate_dock (dock_id) == null)
-        show_message (_("Could not duplicate this dock. Plank supports at most %d docks.").printf (DockManager.MAX_DOCKS));
-    }
-
-    void rename_dock_clicked (string dock_id) {
-      var current = dock_manager.get_display_name (dock_id);
-      var name = prompt_for_name (_("Rename Dock"), _("Name for this dock:"), current);
-      if (name == null)
-        return;
-
-      dock_manager.rename_dock (dock_id, name);
-    }
-
-    void delete_dock_clicked (string dock_id) {
-      var display_name = dock_manager.get_display_name (dock_id);
-
-      if (!confirm (_("Delete the dock \"%s\"?").printf (display_name),
-                    _("Its settings and items will be removed permanently.")))
-        return;
-
-      if (!dock_manager.delete_dock (dock_id))
-        show_message (_("At least one dock has to remain."));
-    }
-
-    //
     // Items tab
     //
 
@@ -860,27 +940,23 @@ namespace Plank {
         return;
       }
 
-      var page = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
-      page.margin = 16;
-      page.set_size_request (520, 360);
-
       var hint = new Gtk.Label (_("Items shown on this dock. Drag files or folders here to add them."));
       hint.halign = Gtk.Align.START;
       hint.xalign = 0.0f;
       hint.set_line_wrap (true);
       hint.get_style_context ().add_class (Gtk.STYLE_CLASS_DIM_LABEL);
-      page.pack_start (hint, false, false, 0);
+      page_items.pack_start (hint, false, false, 0);
 
       var scrolled = new Gtk.ScrolledWindow (null, null);
       scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
       scrolled.set_shadow_type (Gtk.ShadowType.IN);
-      scrolled.set_min_content_height (240);
+      scrolled.set_min_content_height (300);
 
       list_items = new Gtk.ListBox ();
       list_items.set_selection_mode (Gtk.SelectionMode.NONE);
       list_items.set_activate_on_single_click (false);
       scrolled.add (list_items);
-      page.pack_start (scrolled, true, true, 0);
+      page_items.pack_start (scrolled, true, true, 0);
 
       Gtk.TargetEntry te = { "text/uri-list", 0, 0 };
       Gtk.drag_dest_set (list_items, 0, { te }, Gdk.DragAction.COPY);
@@ -894,10 +970,9 @@ namespace Plank {
       btn_add_folder = new Gtk.Button.with_label (_("Add Folder"));
       btn_add_folder.clicked.connect (() => add_item_clicked (true));
       buttons.pack_start (btn_add_folder, false, false, 0);
-      page.pack_start (buttons, false, false, 0);
+      page_items.pack_start (buttons, false, false, 0);
 
-      dock_preferences.add_titled (page, "items", _("Items"));
-      page.show_all ();
+      page_items.show_all ();
 
       bind_items_provider ();
     }

@@ -70,8 +70,9 @@ along with plank.  If not, see <http://www.gnu.org/licenses/>.
     <property name="step_increment">1</property>
   </object>
   <template class="PlankPreferencesWindow" parent="GtkWindow">
-    <property name="can_focus">False</property>
-    <property name="resizable">False</property>
+    <property name="default_width">960</property>
+    <property name="default_height">620</property>
+    <property name="resizable">True</property>
     <property name="window_position">center</property>
     <property name="icon_name">plank</property>
     <property name="type_hint">dialog</property>
@@ -80,912 +81,1148 @@ along with plank.  If not, see <http://www.gnu.org/licenses/>.
     <property name="skip_pager_hint">True</property>
     <property name="gravity">center</property>
     <child>
-      <object class="GtkStack" id="dock_preferences">
+      <object class="GtkBox" id="root_box">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
+        <property name="orientation">horizontal</property>
         <child>
-          <object class="GtkGrid" id="grid_appearance">
+          <object class="GtkBox" id="sidebar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="valign">start</property>
-            <property name="margin_left">16</property>
-            <property name="margin_right">16</property>
-            <property name="margin_top">16</property>
-            <property name="margin_bottom">16</property>
-            <property name="row_spacing">8</property>
-            <property name="column_spacing">12</property>
-            <property name="row_homogeneous">True</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">8</property>
+            <property name="margin">12</property>
+            <property name="width_request">240</property>
             <child>
-              <object class="GtkLabel" id="l_theme">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Theme:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_position">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Position:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="cb_theme">
-                <property name="width_request">200</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="hexpand">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-                <property name="width">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="cb_position">
-                <property name="width_request">200</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <items>
-                  <item id="0" translatable="yes">Left</item>
-                  <item id="1" translatable="yes">Right</item>
-                  <item id="2" translatable="yes">Top</item>
-                  <item id="3" translatable="yes">Bottom</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">1</property>
-                <property name="width">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_active_display">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >On Active Display:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">4</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_active_display">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScale" id="s_active_display_polling_interval">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Polling interval in seconds for active display detection</property>
-                <property
-                  name="adjustment"
-                >adj_active_display_polling_interval</property>
-                <property name="digits">0</property>
-                <property name="value_pos">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_alignment">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Alignment:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="cb_alignment">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <items>
-                  <item id="0" translatable="yes">Fill</item>
-                  <item id="1" translatable="yes">Start</item>
-                  <item id="2" translatable="yes">End</item>
-                  <item id="3" translatable="yes">Center</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_primary_display">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >On Primary Display:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">3</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="cb_display_plug">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="hexpand">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScale" id="s_offset">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Offset in percent from the center of the screen-edge</property>
-                <property name="adjustment">adj_offset</property>
-                <property name="round_digits">0</property>
-                <property name="digits">0</property>
-                <property name="value_pos">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">5</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_icon_alignment">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Icon Alignment:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">6</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="cb_items_alignment">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <items>
-                  <item id="1" translatable="yes">Start</item>
-                  <item id="2" translatable="yes">End</item>
-                  <item id="3" translatable="yes">Center</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">6</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_iconsize">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Icon Size:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">7</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSpinButton" id="sp_iconsize">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="invisible_char">•</property>
-                <property name="adjustment">adj_iconsize</property>
-                <property name="numeric">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">7</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScale" id="s_iconsize">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="adjustment">adj_iconsize</property>
-                <property name="digits">0</property>
-                <property name="draw_value">False</property>
-                <property name="value_pos">left</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">7</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScale" id="s_zoom_percent">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="adjustment">adj_zoom_percent</property>
-                <property name="digits">0</property>
-                <property name="value_pos">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_zoom_enabled">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_iconzoom">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Icon Zoom:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">8</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_gapsize">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Gap Size:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">9</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSpinButton" id="sp_gapsize">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="invisible_char">•</property>
-                <property name="adjustment">adj_gapsize</property>
-                <property name="numeric">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">9</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScale" id="s_gapsize">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="adjustment">adj_gapsize</property>
-                <property name="digits">0</property>
-                <property name="draw_value">False</property>
-                <property name="value_pos">left</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">9</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_area_mode">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Screen Area:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="cb_area_mode">
-                <property name="width_request">200</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Monitor uses the full display. Work Area leaves room for other panels. Auto chooses based on your desktop.</property>
-                <items>
-                  <item id="0" translatable="yes">Auto</item>
-                  <item id="1" translatable="yes">Monitor</item>
-                  <item id="2" translatable="yes">Work Area</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">2</property>
-                <property name="width">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_primary_display">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">3</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="name">grid_appearance</property>
-            <property name="title" translatable="yes">Appearance</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="grid_behaviour">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="valign">start</property>
-            <property name="margin_left">16</property>
-            <property name="margin_right">16</property>
-            <property name="margin_top">16</property>
-            <property name="margin_bottom">16</property>
-            <property name="row_spacing">8</property>
-            <property name="column_spacing">12</property>
-            <child>
-              <object class="GtkComboBoxText" id="cb_hidemode">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="hexpand">True</property>
-                <items>
-                  <item id="1" translatable="yes">Intellihide</item>
-                  <item id="2" translatable="yes">Autohide</item>
-                  <item id="3" translatable="yes">Dodge maximized window</item>
-                  <item id="4" translatable="yes">Window Dodge</item>
-                  <item id="5" translatable="yes">Dodge active window</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">1</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_hide">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">end</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_hide_dock">
+              <object class="GtkLabel" id="l_docks_heading">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="halign">start</property>
-                <property name="label" translatable="yes">Hide Dock</property>
+                <property name="label" translatable="yes">Docks</property>
                 <attributes>
                   <attribute name="weight" value="bold" />
                 </attributes>
               </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-                <property name="width">4</property>
-              </packing>
             </child>
             <child>
-              <object class="GtkLabel" id="l_pressure1">
+              <object class="GtkScrolledWindow" id="sw_docks">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Hide Delay:</property>
+                <property name="hscrollbar_policy">never</property>
+                <property name="shadow_type">in</property>
+                <property name="min_content_height">220</property>
+                <child>
+                  <object class="GtkListBox" id="list_docks">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="selection_mode">single</property>
+                    <property name="activate_on_single_click">true</property>
+                  </object>
+                </child>
               </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
-              </packing>
             </child>
             <child>
-              <object class="GtkSpinButton" id="sp_hide_delay">
+              <object class="GtkButton" id="btn_add_dock">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Delay in ms before hiding the dock</property>
-                <property name="halign">start</property>
-                <property name="invisible_char">•</property>
-                <property name="adjustment">adj_hide_delay</property>
-                <property name="numeric">True</property>
+                <property name="label" translatable="yes">Add Dock</property>
+                <property name="tooltip_text" translatable="yes">Create another dock with its own settings and items</property>
               </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">2</property>
-              </packing>
             </child>
             <child>
-              <object class="GtkLabel" id="l_pressure2">
+              <object class="GtkSeparator">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Unhide Delay:</property>
               </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">2</property>
-              </packing>
             </child>
             <child>
-              <object class="GtkSpinButton" id="sp_unhide_delay">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Delay in ms before showing the dock</property>
-                <property name="halign">start</property>
-                <property name="invisible_char">•</property>
-                <property name="adjustment">adj_unhide_delay</property>
-                <property name="numeric">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_pressure">
+              <object class="GtkBox" id="global_box">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Pressure Reveal:</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">4</property>
+                <child>
+                  <object class="GtkBox" id="overlap_row">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="orientation">horizontal</property>
+                    <property name="spacing">8</property>
+                    <child>
+                      <object class="GtkLabel" id="l_avoid_overlap">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="hexpand">True</property>
+                        <property name="label" translatable="yes">Keep docks from overlapping</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_avoid_overlap">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="valign">center</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="l_avoid_overlap_hint">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="halign">start</property>
+                    <property name="xalign">0</property>
+                    <property name="wrap">True</property>
+                    <property name="label" translatable="yes">Docks whose visible areas would overlap are moved apart automatically.</property>
+                    <attributes>
+                      <attribute name="scale" value="0.85" />
+                    </attributes>
+                  </object>
+                </child>
               </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_pressure_reveal">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_application_windows">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">start</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Item Management</property>
-                <attributes>
-                  <attribute name="weight" value="bold" />
-                </attributes>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">4</property>
-                <property name="width">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_show_unpinned">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Show Unpinned:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_show_unpinned">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_show_new_applications">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Show New Applications:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">6</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_show_new_applications">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">6</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_workspace_only">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Restrict to Workspace:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">7</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_workspace_only">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">7</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_tooltips_enabled">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Tooltips Enabled:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">9</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_tooltips_enabled">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">9</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_previews_enabled">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Window Previews:</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">9</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_previews_enabled">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">9</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_preview_delay">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Preview Delay:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">10</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSpinButton" id="sp_preview_delay">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Delay in ms before showing window previews</property>
-                <property name="halign">start</property>
-                <property name="invisible_char">•</property>
-                <property name="adjustment">adj_preview_delay</property>
-                <property name="numeric">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">10</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_preview_size">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Preview Size:</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">10</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSpinButton" id="sp_preview_size">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >Largest width of a window preview in pixels</property>
-                <property name="halign">start</property>
-                <property name="invisible_char">•</property>
-                <property name="adjustment">adj_preview_size</property>
-                <property name="numeric">True</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">10</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_lock_items">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="label" translatable="yes">Lock Icons:</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_lock_items">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_anchor_docklets">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Anchor Docklets:</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">7</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_anchor_docklets">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">7</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_anchor_files">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Anchor Files:</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_anchor_files">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="l_bring_to_workspace">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property
-                  name="label"
-                  translatable="yes"
-                >Bring to Workspace:</property>
-                <property name="justify">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSwitch" id="sw_bring_to_workspace">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">start</property>
-                <property name="valign">center</property>
-                <property
-                  name="tooltip_text"
-                  translatable="yes"
-                >When activating a window located on another workspace, move it to the current workspace instead of switching to the window's workspace.</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">8</property>
-              </packing>
             </child>
           </object>
-          <packing>
-            <property name="name">grid_behaviour</property>
-            <property name="title" translatable="yes">Behaviour</property>
-            <property name="position">1</property>
-          </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow" id="sw_docklets">
+          <object class="GtkSeparator" id="sidebar_separator">
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hscrollbar_policy">never</property>
+            <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="content_box">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">12</property>
+            <property name="margin">16</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
             <child>
-              <object class="GtkIconView" id="view_docklets">
+              <object class="GtkBox" id="content_header">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="margin">6</property>
-                <property name="columns">3</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">horizontal</property>
+                <property name="spacing">8</property>
+                <child>
+                  <object class="GtkBox" id="current_dock_labels">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">2</property>
+                    <property name="hexpand">True</property>
+                    <child>
+                      <object class="GtkLabel" id="l_current_dock">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="label" translatable="yes">Dock</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_current_dock_detail">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <attributes>
+                          <attribute name="scale" value="0.85" />
+                        </attributes>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuButton" id="btn_dock_menu">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="valign">center</property>
+                    <property name="tooltip_text" translatable="yes">Rename, duplicate or delete this dock</property>
+                    <child>
+                      <object class="GtkImage" id="img_dock_menu">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="icon_name">open-menu-symbolic</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackSwitcher" id="dock_preferences_switcher">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="stack">dock_preferences</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStack" id="dock_preferences">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="vexpand">True</property>
+                <property name="transition_type">crossfade</property>
+                <child>
+                  <object class="GtkGrid" id="grid_appearance">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="valign">start</property>
+                    <property name="row_spacing">10</property>
+                    <property name="column_spacing">12</property>
+                    <child>
+                      <object class="GtkLabel" id="l_theme">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Theme:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_theme">
+                        <property name="width_request">220</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">0</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_iconsize">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Icon Size:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sp_iconsize">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="invisible_char">•</property>
+                        <property name="adjustment">adj_iconsize</property>
+                        <property name="numeric">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_iconsize">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="adjustment">adj_iconsize</property>
+                        <property name="digits">0</property>
+                        <property name="draw_value">False</property>
+                        <property name="value_pos">left</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">1</property>
+                        <property name="width">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_gapsize">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Gap Size:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sp_gapsize">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="invisible_char">•</property>
+                        <property name="adjustment">adj_gapsize</property>
+                        <property name="numeric">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_gapsize">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="adjustment">adj_gapsize</property>
+                        <property name="digits">0</property>
+                        <property name="draw_value">False</property>
+                        <property name="value_pos">left</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">2</property>
+                        <property name="width">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_show_dock_item">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Show Plank Item:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_show_dock_item">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                        <property name="tooltip_text" translatable="yes">Show the Plank logo item on this dock</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_appearance_hint">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="xalign">0</property>
+                        <property name="wrap">True</property>
+                        <property name="label" translatable="yes">These settings only apply to the selected dock.</property>
+                        <attributes>
+                          <attribute name="scale" value="0.85" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">4</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">appearance</property>
+                    <property name="title" translatable="yes">Appearance</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkGrid" id="grid_position">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="valign">start</property>
+                    <property name="row_spacing">10</property>
+                    <property name="column_spacing">12</property>
+                    <child>
+                      <object class="GtkLabel" id="l_position">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Position:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_position">
+                        <property name="width_request">220</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                        <items>
+                          <item id="0" translatable="yes">Left</item>
+                          <item id="1" translatable="yes">Right</item>
+                          <item id="2" translatable="yes">Top</item>
+                          <item id="3" translatable="yes">Bottom</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">0</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_area_mode">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Screen Area:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_area_mode">
+                        <property name="width_request">220</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                        <property name="tooltip_text" translatable="yes">Monitor uses the full display. Work Area leaves room for other panels. Auto chooses based on your desktop.</property>
+                        <items>
+                          <item id="0" translatable="yes">Auto</item>
+                          <item id="1" translatable="yes">Monitor</item>
+                          <item id="2" translatable="yes">Work Area</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_primary_display">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">On Primary Display:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_primary_display">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_display_plug">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">2</property>
+                        <property name="width">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_active_display">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">On Active Display:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_active_display">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_active_display_polling_interval">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="tooltip_text" translatable="yes">Polling interval in seconds for active display detection</property>
+                        <property name="adjustment">adj_active_display_polling_interval</property>
+                        <property name="digits">0</property>
+                        <property name="value_pos">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">3</property>
+                        <property name="width">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_alignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Alignment:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_alignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <items>
+                          <item id="0" translatable="yes">Fill</item>
+                          <item id="1" translatable="yes">Start</item>
+                          <item id="2" translatable="yes">End</item>
+                          <item id="3" translatable="yes">Center</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_offset">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="tooltip_text" translatable="yes">Offset in percent from the center of the screen-edge</property>
+                        <property name="adjustment">adj_offset</property>
+                        <property name="round_digits">0</property>
+                        <property name="digits">0</property>
+                        <property name="value_pos">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">4</property>
+                        <property name="width">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_icon_alignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Icon Alignment:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_items_alignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <items>
+                          <item id="1" translatable="yes">Start</item>
+                          <item id="2" translatable="yes">End</item>
+                          <item id="3" translatable="yes">Center</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">position</property>
+                    <property name="title" translatable="yes">Position</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkGrid" id="grid_behaviour">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="valign">start</property>
+                    <property name="row_spacing">10</property>
+                    <property name="column_spacing">12</property>
+                    <child>
+                      <object class="GtkLabel" id="l_hide_dock">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="label" translatable="yes">Hide Dock</property>
+                        <attributes>
+                          <attribute name="weight" value="bold" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_hide">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">end</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_hidemode">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                        <items>
+                          <item id="1" translatable="yes">Intellihide</item>
+                          <item id="2" translatable="yes">Autohide</item>
+                          <item id="3" translatable="yes">Dodge maximized window</item>
+                          <item id="4" translatable="yes">Window Dodge</item>
+                          <item id="5" translatable="yes">Dodge active window</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_hide_delay">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Hide Delay:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sp_hide_delay">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="tooltip_text" translatable="yes">Delay in ms before hiding the dock</property>
+                        <property name="halign">start</property>
+                        <property name="invisible_char">•</property>
+                        <property name="adjustment">adj_hide_delay</property>
+                        <property name="numeric">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_unhide_delay">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Unhide Delay:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sp_unhide_delay">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="tooltip_text" translatable="yes">Delay in ms before showing the dock</property>
+                        <property name="halign">start</property>
+                        <property name="invisible_char">•</property>
+                        <property name="adjustment">adj_unhide_delay</property>
+                        <property name="numeric">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_pressure">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Pressure Reveal:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_pressure_reveal">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_application_windows">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="label" translatable="yes">Items</property>
+                        <attributes>
+                          <attribute name="weight" value="bold" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">4</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_show_unpinned">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Show Unpinned:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_show_unpinned">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_lock_items">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Lock Icons:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_lock_items">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_show_new_applications">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Show New Applications:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_show_new_applications">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_anchor_docklets">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Anchor Docklets:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_anchor_docklets">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_workspace_only">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Restrict to Workspace:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">7</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_workspace_only">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">7</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_anchor_files">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Anchor Files:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">7</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_anchor_files">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">7</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_bring_to_workspace">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Bring to Workspace:</property>
+                        <property name="justify">right</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">8</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_bring_to_workspace">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                        <property name="tooltip_text" translatable="yes">When activating a window located on another workspace, move it to the current workspace instead of switching to the window's workspace.</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">8</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_tooltips_enabled">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Tooltips Enabled:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">9</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_tooltips_enabled">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">9</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_previews_enabled">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Window Previews:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">9</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_previews_enabled">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">9</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_preview_delay">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Preview Delay:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">10</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sp_preview_delay">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="tooltip_text" translatable="yes">Delay in ms before showing window previews</property>
+                        <property name="halign">start</property>
+                        <property name="invisible_char">•</property>
+                        <property name="adjustment">adj_preview_delay</property>
+                        <property name="numeric">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">10</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_preview_size">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Preview Size:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">10</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sp_preview_size">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="tooltip_text" translatable="yes">Largest width of a window preview in pixels</property>
+                        <property name="halign">start</property>
+                        <property name="invisible_char">•</property>
+                        <property name="adjustment">adj_preview_size</property>
+                        <property name="numeric">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="top_attach">10</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">behaviour</property>
+                    <property name="title" translatable="yes">Behaviour</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkGrid" id="grid_effects">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="valign">start</property>
+                    <property name="row_spacing">10</property>
+                    <property name="column_spacing">12</property>
+                    <child>
+                      <object class="GtkLabel" id="l_effects_heading">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="label" translatable="yes">Hover Zoom</property>
+                        <attributes>
+                          <attribute name="weight" value="bold" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_zoom_enabled">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Enable hover zoom:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_zoom_enabled">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                        <property name="tooltip_text" translatable="yes">Magnify icons when the pointer moves over this dock</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_zoom_percent">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Zoom strength:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_zoom_percent">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="adjustment">adj_zoom_percent</property>
+                        <property name="digits">0</property>
+                        <property name="value_pos">right</property>
+                        <property name="tooltip_text" translatable="yes">Maximum icon size while hovering, as a percentage of the normal icon size</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">2</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_effects_hint">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="xalign">0</property>
+                        <property name="wrap">True</property>
+                        <property name="label" translatable="yes">Hover zoom is configured independently for each dock. The strength is the largest icon size reached while the pointer is over the dock.</property>
+                        <attributes>
+                          <attribute name="scale" value="0.85" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">3</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">effects</property>
+                    <property name="title" translatable="yes">Effects</property>
+                    <property name="position">3</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox" id="page_items">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">8</property>
+                  </object>
+                  <packing>
+                    <property name="name">items</property>
+                    <property name="title" translatable="yes">Items</property>
+                    <property name="position">4</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkScrolledWindow" id="sw_docklets">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="hscrollbar_policy">never</property>
+                    <child>
+                      <object class="GtkIconView" id="view_docklets">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="margin">6</property>
+                        <property name="columns">3</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">docklets</property>
+                    <property name="title" translatable="yes">Docklets</property>
+                    <property name="position">5</property>
+                  </packing>
+                </child>
               </object>
             </child>
           </object>
-          <packing>
-            <property name="name">view_docklets</property>
-            <property name="title" translatable="yes">Docklets</property>
-            <property name="position">2</property>
-          </packing>
         </child>
       </object>
     </child>
@@ -994,17 +1231,7 @@ along with plank.  If not, see <http://www.gnu.org/licenses/>.
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="show_close_button">True</property>
-        <child>
-          <placeholder />
-        </child>
-        <child type="title">
-          <object class="GtkStackSwitcher" id="dock_preferences_switcher">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">center</property>
-            <property name="stack">dock_preferences</property>
-          </object>
-        </child>
+        <property name="title" translatable="yes">Plank Preferences</property>
       </object>
     </child>
   </template>
