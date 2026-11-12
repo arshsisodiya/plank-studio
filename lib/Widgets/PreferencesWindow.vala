@@ -225,13 +225,18 @@ namespace Plank {
     }
 
     public override bool key_press_event (Gdk.EventKey event) {
-      if (event.keyval == Gdk.Key.Escape)
-        hide ();
+      if (event.keyval == Gdk.Key.Escape) {
+        destroy ();
+        return Gdk.EVENT_STOP;
+      }
 
       return base.key_press_event (event);
     }
 
     void prefs_changed (Object o, ParamSpec prop) {
+      if (cleaned_up)
+        return;
+
       switch (prop.name) {
       case "Alignment":
         cb_alignment.active_id = ((int) prefs.Alignment).to_string ();
@@ -252,9 +257,9 @@ namespace Plank {
         cb_items_alignment.active_id = ((int) prefs.ItemsAlignment).to_string ();
         break;
       case "HideMode":
-        var hide_none = (prefs.HideMode != HideType.NONE);
-        sw_hide.set_active (hide_none);
-        if (!hide_none)
+        var hide_enabled = (prefs.HideMode != HideType.NONE);
+        sw_hide.set_active (hide_enabled);
+        if (hide_enabled)
           cb_hidemode.active_id = ((int) prefs.HideMode).to_string ();
         break;
       case "LockItems":
@@ -368,30 +373,55 @@ namespace Plank {
       }
     }
 
+    bool try_get_active_int_id (Gtk.ComboBox widget, out int id) {
+      unowned string? active_id = widget.get_active_id ();
+      if (active_id == null) {
+        id = 0;
+        return false;
+      }
+
+      id = int.parse (active_id);
+      return true;
+    }
+
     void theme_changed (Gtk.ComboBox widget) {
-      prefs.Theme = ((Gtk.ComboBoxText) widget).get_active_text ();
+      string? active_text = ((Gtk.ComboBoxText) widget).get_active_text ();
+      if (active_text != null)
+        prefs.Theme = active_text;
     }
 
     void hidemode_changed (Gtk.ComboBox widget) {
-      prefs.HideMode = (HideType) int.parse (widget.get_active_id ());
+      int id;
+      if (try_get_active_int_id (widget, out id))
+        prefs.HideMode = (HideType) id;
     }
 
     void position_changed (Gtk.ComboBox widget) {
-      prefs.Position = (Gtk.PositionType) int.parse (widget.get_active_id ());
+      int id;
+      if (try_get_active_int_id (widget, out id))
+        prefs.Position = (Gtk.PositionType) id;
     }
 
     void area_mode_changed (Gtk.ComboBox widget) {
-      prefs.AreaMode = (AreaType) int.parse (widget.get_active_id ());
+      int id;
+      if (try_get_active_int_id (widget, out id))
+        prefs.AreaMode = (AreaType) id;
     }
 
     void alignment_changed (Gtk.ComboBox widget) {
-      prefs.Alignment = (Gtk.Align) int.parse (widget.get_active_id ());
+      int id;
+      if (!try_get_active_int_id (widget, out id))
+        return;
+
+      prefs.Alignment = (Gtk.Align) id;
       cb_items_alignment.sensitive = (prefs.Alignment == Gtk.Align.FILL);
       s_offset.sensitive = (prefs.Alignment == Gtk.Align.CENTER);
     }
 
     void items_alignment_changed (Gtk.ComboBox widget) {
-      prefs.ItemsAlignment = (Gtk.Align) int.parse (widget.get_active_id ());
+      int id;
+      if (try_get_active_int_id (widget, out id))
+        prefs.ItemsAlignment = (Gtk.Align) id;
     }
 
     void hide_toggled (GLib.Object widget, ParamSpec param) {
@@ -417,7 +447,9 @@ namespace Plank {
         sw_active_display.set_active (false);
         s_active_display_polling_interval.sensitive = false;
       } else {
-        prefs.Monitor = cb_display_plug.get_active_text ();
+        string? active_monitor = cb_display_plug.get_active_text ();
+        if (active_monitor != null)
+          prefs.Monitor = active_monitor;
         if (!sw_active_display.get_active ()) {
           cb_display_plug.sensitive = true;
         }
@@ -526,9 +558,9 @@ namespace Plank {
     }
 
     void stack_direction_changed (Gtk.ComboBox widget) {
-      var active_id = widget.get_active_id ();
-      if (active_id != null)
-        prefs.StackDirection = (StackDirection) int.parse (active_id);
+      int id;
+      if (try_get_active_int_id (widget, out id))
+        prefs.StackDirection = (StackDirection) id;
     }
 
     void stack_speed_changed (Gtk.Adjustment adj) {
@@ -550,7 +582,12 @@ namespace Plank {
     }
 
     void monitor_changed (Gtk.ComboBox widget) {
-      prefs.Monitor = ((Gtk.ComboBoxText) widget).get_active_text ();
+      if (refreshing_display_plugs)
+        return;
+
+      string? active_text = ((Gtk.ComboBoxText) widget).get_active_text ();
+      if (active_text != null)
+        prefs.Monitor = active_text;
     }
 
     void active_display_toggled (GLib.Object widget, ParamSpec param) {
@@ -559,7 +596,9 @@ namespace Plank {
 
       if (active) {
         sw_primary_display.set_active (false);
-        prefs.Monitor = cb_display_plug.get_active_text ();
+        string? active_monitor = cb_display_plug.get_active_text ();
+        if (active_monitor != null)
+          prefs.Monitor = active_monitor;
         cb_display_plug.sensitive = false;
         s_active_display_polling_interval.sensitive = true;
       } else {
@@ -808,7 +847,7 @@ namespace Plank {
     }
 
     void avoid_overlap_toggled (GLib.Object widget, ParamSpec prop) {
-      if (sw_avoid_overlap == null)
+      if (cleaned_up || sw_avoid_overlap == null || dock_manager == null)
         return;
 
       dock_manager.set_avoid_overlap (sw_avoid_overlap.get_active ());
@@ -979,7 +1018,7 @@ namespace Plank {
     }
 
     void update_header () {
-      if (prefs == null)
+      if (cleaned_up || prefs == null || l_current_dock == null)
         return;
 
       l_current_dock.set_markup ("<b>%s</b>".printf (GLib.Markup.escape_text (dock_manager.get_display_name (controller.name))));
@@ -1364,7 +1403,8 @@ namespace Plank {
 
       var icon_name = val.get_string ();
       var icon_size = prefs.IconSize;
-      var window_scale_factor = get_window ().get_scale_factor ();
+      var gdk_window = get_window ();
+      var window_scale_factor = gdk_window != null ? gdk_window.get_scale_factor () : get_scale_factor ();
       icon_size *= window_scale_factor;
       var surface = DrawingService.load_icon_for_scale (icon_name, icon_size, icon_size, window_scale_factor);
       surface.set_device_offset (-icon_size / 2.0, -icon_size / 2.0);

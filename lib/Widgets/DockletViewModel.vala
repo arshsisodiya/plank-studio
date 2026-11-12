@@ -119,9 +119,14 @@ namespace Plank
 			if (path.get_depth () != 1 || data.length == 0) {
 				return invalid_iter (out iter);
 			}
+
+			int pos = path.get_indices ()[0];
+			if (pos < 0 || pos >= data.length) {
+				return invalid_iter (out iter);
+			}
 			
 			iter = Gtk.TreeIter ();
-			iter.user_data = ((uint) path.get_indices ()[0]).to_pointer ();
+			iter.user_data = ((uint) pos).to_pointer ();
 			iter.stamp = stamp;
 			
 			return true;
@@ -167,7 +172,7 @@ namespace Plank
 			assert (iter.stamp == stamp);
 			
 			uint pos = pointer_to_uint (iter.user_data);
-			if (pos >= 0)
+			if (pos == 0 || pos > data.length)
 				return false;
 			
 			iter.user_data = (--pos).to_pointer ();
@@ -179,7 +184,7 @@ namespace Plank
 		{
 			assert (parent == null || parent.stamp == stamp);
 			
-			if (parent == null && n < data.length) {
+			if (parent == null && n >= 0 && n < data.length) {
 				iter = Gtk.TreeIter ();
 				iter.stamp = stamp;
 				iter.user_data = ((uint) n).to_pointer ();

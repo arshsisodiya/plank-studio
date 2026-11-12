@@ -1269,8 +1269,10 @@ please read https://www.gnu.org/licenses/why-not-lgpl.html.""");
       });
 
       preferences_dlg.hide.connect (() => {
-        preferences_dlg.destroy ();
+        var dlg = preferences_dlg;
         preferences_dlg = null;
+        if (dlg != null)
+          dlg.destroy ();
       });
 
       preferences_dlg.present ();

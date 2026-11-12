@@ -782,7 +782,8 @@ namespace Plank {
 
     void update_window_intersect () {
       var dock_rect = controller.position_manager.get_static_dock_region ();
-      var window_scale_factor = controller.window.get_window ().get_scale_factor ();
+      var gdk_window = controller.window.get_window ();
+      var window_scale_factor = gdk_window != null ? gdk_window.get_scale_factor () : controller.window.get_scale_factor ();
       if (window_scale_factor > 1) {
         dock_rect.x *= window_scale_factor;
         dock_rect.y *= window_scale_factor;
@@ -1067,6 +1068,9 @@ namespace Plank {
     [CCode (instance_pos = -1)]
     Gdk.FilterReturn xevent_filter (Gdk.XEvent gdk_xevent, Gdk.Event gdk_event) {
       X.Event* xevent = (X.Event*) gdk_xevent;
+      if (xevent.type != X.EventType.GenericEvent)
+        return Gdk.FilterReturn.CONTINUE;
+
       X.GenericEventCookie* xcookie = &xevent.xcookie;
       unowned X.Display display = xcookie.display;
 

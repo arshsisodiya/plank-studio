@@ -26,6 +26,7 @@ namespace PlankTests
 		Test.add_func ("/Widgets/CompositedWindow/basics", composited_window_basics);
 		Test.add_func ("/Widgets/PoofWindow/basics", poof_window_basics);
 		Test.add_func ("/Widgets/HoverWindow/basics", hover_window_basics);
+		Test.add_func ("/Widgets/DockletViewModel/basics", docklet_view_model_basics);
 	}
 
 	void composited_window_basics ()
@@ -98,5 +99,32 @@ namespace PlankTests
 		window = null;
 
 		wait (X_WAIT_MS);
+	}
+
+	void docklet_view_model_basics ()
+	{
+		var model = new DockletViewModel ();
+		Gtk.TreeIter iter;
+
+		assert (!model.get_iter (out iter, new Gtk.TreePath.from_indices (0)));
+		assert (!model.iter_nth_child (out iter, null, 0));
+
+		var pixbuf = new Gdk.Pixbuf (Gdk.Colorspace.RGB, true, 8, 16, 16);
+		model.add ("a", "A", "Desc A", "icon-a", pixbuf);
+		model.add ("b", "B", "Desc B", "icon-b", pixbuf);
+
+		assert (!model.get_iter (out iter, new Gtk.TreePath.from_indices (2)));
+		assert (!model.get_iter (out iter, new Gtk.TreePath.from_indices (0, 0)));
+		assert (!model.iter_nth_child (out iter, null, 2));
+
+		assert (model.get_iter (out iter, new Gtk.TreePath.from_indices (1)));
+		Value val;
+		model.get_value (iter, DockletViewModel.Column.ID, out val);
+		assert (val.get_string () == "b");
+
+		assert (model.iter_previous (ref iter));
+		model.get_value (iter, DockletViewModel.Column.ID, out val);
+		assert (val.get_string () == "a");
+		assert (!model.iter_previous (ref iter));
 	}
 }
