@@ -49,6 +49,11 @@ namespace Plank {
 
     public DockItemProvider? default_provider { get; private set; }
 
+    /**
+     * Whether a dock in stackable mode is currently expanded.
+     */
+    public bool StackExpanded { get; private set; default = false; }
+
     DBusManager dbus_manager;
     Gee.ArrayList<unowned DockItem> visible_items;
     Gee.ArrayList<unowned DockItem> new_visible_items;
@@ -103,6 +108,7 @@ namespace Plank {
 
       prefs.notify["Position"].connect (update_visible_elements);
       prefs.notify["ShowDockItem"].connect (update_show_dock_item);
+      prefs.notify["StackMode"].connect (stack_mode_changed);
 
       dbus_manager = new DBusManager (this);
 
@@ -120,6 +126,7 @@ namespace Plank {
       if (!shutting_down) {
         prefs.notify["Position"].disconnect (update_visible_elements);
         prefs.notify["ShowDockItem"].disconnect (update_show_dock_item);
+        prefs.notify["StackMode"].disconnect (stack_mode_changed);
 
         positions_changed.disconnect (handle_positions_changed);
         states_changed.disconnect (handle_states_changed);
@@ -163,6 +170,7 @@ namespace Plank {
       // update behind.
       prefs.notify["Position"].disconnect (update_visible_elements);
       prefs.notify["ShowDockItem"].disconnect (update_show_dock_item);
+      prefs.notify["StackMode"].disconnect (stack_mode_changed);
 
       positions_changed.disconnect (handle_positions_changed);
       states_changed.disconnect (handle_states_changed);
@@ -312,6 +320,43 @@ namespace Plank {
           remove (dock_itself_item);
         dock_itself_item = null;
       }
+    }
+
+    void stack_mode_changed () {
+      if (!prefs.StackMode && StackExpanded)
+        set_stack_expanded (false);
+    }
+
+    /**
+     * Expands or collapses the dock stack when StackMode is enabled.
+     *
+     * @param expanded whether the stack should be expanded
+     */
+    public void set_stack_expanded (bool expanded) {
+      bool target = prefs.StackMode && expanded;
+      if (StackExpanded == target)
+        return;
+
+      if (!target) {
+        if (hover != null)
+          hover.hide ();
+        if (preview_manager != null)
+          preview_manager.dismiss ();
+      }
+
+      StackExpanded = target;
+
+      if (renderer != null)
+        renderer.stack_expanded_changed ();
+      if (hide_manager != null)
+        hide_manager.stack_state_changed ();
+    }
+
+    /**
+     * Toggles the expanded state of a stackable dock.
+     */
+    public void toggle_stack () {
+      set_stack_expanded (!StackExpanded);
     }
 
     protected override void connect_element (DockElement element) {

@@ -74,6 +74,9 @@ namespace Plank {
     int requested_y;
     int window_position_retry = 0;
 
+    bool stack_toggle_hovered = false;
+    bool stack_toggle_clicked = false;
+
     X.Atom strut_partial_atom = X.None;
     X.Atom strut_atom = X.None;
     X.Atom wm_protocols_atom = X.None;
@@ -157,6 +160,18 @@ namespace Plank {
       if (HoveredItem == null)
         update_hovered ((int) event.x, (int) event.y);
 
+      if (controller.prefs.StackMode
+          && controller.position_manager.point_in_stack_toggle ((int) event.x, (int) event.y)) {
+        ClickedItem = null;
+        if (show_menu (null, event)) {
+          stack_toggle_clicked = false;
+          return Gdk.EVENT_STOP;
+        }
+        stack_toggle_clicked = (event.button == Gdk.BUTTON_PRIMARY);
+        return Gdk.EVENT_PROPAGATE;
+      }
+
+      stack_toggle_clicked = false;
       ClickedItem = HoveredItem;
 
       // Check and try to show the menu
@@ -204,6 +219,19 @@ namespace Plank {
 
       if (HoveredItem != null && ClickedItem == null && menu_is_visible ())
         menu.hide ();
+
+      if (stack_toggle_clicked) {
+        stack_toggle_clicked = false;
+        ClickedItem = null;
+        if (event.button == Gdk.BUTTON_PRIMARY
+            && !menu_is_visible ()
+            && controller.prefs.StackMode
+            && controller.position_manager.point_in_stack_toggle ((int) event.x, (int) event.y)) {
+          controller.hover.hide ();
+          controller.toggle_stack ();
+          return Gdk.EVENT_STOP;
+        }
+      }
 
       // Make sure the HoveredItem is still the same since button-pressed
       if (ClickedItem != null && HoveredItem == ClickedItem && !menu_is_visible ()) {
@@ -429,12 +457,55 @@ namespace Plank {
         if (HoveredItem.Text != null && HoveredItem.Text != "") {
           hover.set_text (HoveredItem.Text);
           controller.position_manager.get_hover_position (HoveredItem, out x, out y);
-          hover.show_at (x, y, controller.position_manager.Position);
+          hover.show_at (x, y, controller.position_manager.get_hover_tooltip_position ());
         }
 
         if (menu_is_visible ())
           hover.hide ();
 
+        return false;
+      });
+    }
+
+    void set_stack_toggle_hovered (bool hovered) {
+      if (stack_toggle_hovered == hovered)
+        return;
+
+      stack_toggle_hovered = hovered;
+      controller.renderer.animated_draw ();
+
+      if (hover_reposition_timer_id > 0U && HoveredItem == null) {
+        Source.remove (hover_reposition_timer_id);
+        hover_reposition_timer_id = 0U;
+      }
+
+      if (!hovered) {
+        if (HoveredItem == null)
+          controller.hover.hide ();
+        return;
+      }
+
+      if (!controller.prefs.TooltipsEnabled || controller.drag_manager.ExternalDragActive)
+        return;
+
+      hover_reposition_timer_id = Gdk.threads_add_timeout (HOVER_DELAY_TIME, () => {
+        if (!stack_toggle_hovered) {
+          hover_reposition_timer_id = 0U;
+          return false;
+        }
+        if (!controller.hide_manager.Hidden && controller.renderer.hide_progress > 0.0)
+          return true;
+
+        hover_reposition_timer_id = 0U;
+        if (!menu_is_visible ()) {
+          var label = controller.StackExpanded
+            ? _("Click to collapse stack")
+            : _("Stack (%d items) — Click to expand").printf (controller.VisibleItems.size);
+          controller.hover.set_text (label);
+          int hx, hy;
+          controller.position_manager.get_stack_toggle_hover_position (out hx, out hy);
+          controller.hover.show_at (hx, hy, controller.position_manager.Position);
+        }
         return false;
       });
     }
@@ -449,12 +520,31 @@ namespace Plank {
     public bool update_hovered (int x, int y) {
       // If the dock is hidden there is nothing to set.
       if (controller.hide_manager.Hidden) {
+        set_stack_toggle_hovered (false);
         set_hovered_provider (null);
         set_hovered (null);
         return false;
       }
 
       unowned PositionManager position_manager = controller.position_manager;
+
+      if (position_manager.StackMode) {
+        if (position_manager.point_in_stack_toggle (x, y)) {
+          set_hovered_provider (null);
+          set_hovered (null);
+          set_stack_toggle_hovered (true);
+          return true;
+        }
+        set_stack_toggle_hovered (false);
+        if (!controller.StackExpanded) {
+          set_hovered_provider (null);
+          set_hovered (null);
+          return false;
+        }
+      } else {
+        set_stack_toggle_hovered (false);
+      }
+
       unowned DockItem? drag_item = controller.drag_manager.DragItem;
       Gdk.Rectangle rect;
 
@@ -621,6 +711,21 @@ namespace Plank {
       return (menu != null && menu.get_visible ());
     }
 
+    internal bool point_in_menu (int screen_x, int screen_y) {
+      if (!menu_is_visible ())
+        return false;
+
+      unowned Gdk.Window? menu_win = menu.get_window ();
+      if (menu_win == null)
+        return false;
+
+      int mx, my;
+      menu_win.get_origin (out mx, out my);
+      var mw = menu_win.get_width ();
+      var mh = menu_win.get_height ();
+      return screen_x >= mx && screen_x < mx + mw && screen_y >= my && screen_y < my + mh;
+    }
+
     /**
      * Shows the popup menu.
      *
@@ -646,6 +751,16 @@ namespace Plank {
       if ((button & PopupButton.RIGHT) != 0
           && (item == null || (event.state & Gdk.ModifierType.CONTROL_MASK) != 0)) {
         menu_items = Factory.item_factory.get_item_for_dock (controller).get_menu_items ();
+        if (controller.prefs.StackMode) {
+          var toggle_item = new Gtk.MenuItem.with_label (
+            controller.StackExpanded ? _("Collapse Stack") : _("Expand Stack")
+          );
+          toggle_item.activate.connect (() => {
+            controller.toggle_stack ();
+          });
+          menu_items.insert (0, new Gtk.SeparatorMenuItem ());
+          menu_items.insert (0, toggle_item);
+        }
         if ((event.state & Gdk.ModifierType.MOD1_MASK) != 0
             && (event.state & Gdk.ModifierType.SHIFT_MASK) != 0)
           menu_items.add_all (get_dock_debug_menu_items (controller));

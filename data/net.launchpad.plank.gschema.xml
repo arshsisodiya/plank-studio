@@ -27,6 +27,12 @@
 		<value nick="top" value="2"/>
 		<value nick="bottom" value="3"/>
 	</enum>
+	<enum id="PlankStackDirection">
+		<value nick="up" value="0"/>
+		<value nick="down" value="1"/>
+		<value nick="left" value="2"/>
+		<value nick="right" value="3"/>
+	</enum>
 
 
 	<schema id="net.launchpad.plank" path="/net/launchpad/plank/" gettext-domain="plank-reloaded">
@@ -191,6 +197,28 @@
 			<default>true</default>
 			<summary>Show newly opened applications on the dock</summary>
 			<description>If true, applications opened while the dock is running automatically appear on the dock as unpinned items.</description>
+		</key>
+		<key name="stack-animation-speed" type="i">
+			<range min="100" max="800"/>
+			<default>340</default>
+			<summary>Stack animation speed</summary>
+			<description>Duration of the stack expand and collapse animation, in milliseconds.</description>
+		</key>
+		<key name="stack-direction" enum="PlankStackDirection">
+			<default>'up'</default>
+			<summary>Stack expansion direction</summary>
+			<description>Direction in which items expand from the collapsed dock stack ("up", "down", "left", or "right").</description>
+		</key>
+		<key name="stack-item-spacing" type="i">
+			<range min="0" max="48"/>
+			<default>10</default>
+			<summary>Expanded stack item spacing</summary>
+			<description>Extra spacing between expanded items in stackable mode, in pixels.</description>
+		</key>
+		<key name="stack-mode" type="b">
+			<default>false</default>
+			<summary>Enable Stackable Mode</summary>
+			<description>If true, display dock items as a compact collapsible stack that expands when clicked.</description>
 		</key>
 		<key name="theme" type="s">
 			<default>'Default'</default>

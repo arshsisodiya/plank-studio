@@ -400,6 +400,12 @@ namespace Plank {
       case "ZoomEnabled":
         prefs_zoom_changed ();
         break;
+      case "StackMode":
+      case "StackDirection":
+      case "StackAnimationSpeed":
+      case "StackItemSpacing":
+        prefs_stack_changed ();
+        break;
       default:
         // Nothing important for us changed
         break;
@@ -799,6 +805,35 @@ namespace Plank {
     public int Offset { get; private set; }
 
     /**
+     * Cached stackable-mode flag.
+     */
+    public bool StackMode { get; private set; }
+
+    /**
+     * Cached stack expansion direction.
+     */
+    public StackDirection StackDirection { get; private set; }
+
+    /**
+     * Cached stack animation speed in ms.
+     */
+    public int StackAnimationSpeed { get; private set; }
+
+    /**
+     * Cached expanded stack item spacing in px.
+     */
+    public int StackItemSpacing { get; private set; }
+
+    internal Gdk.Rectangle stack_cursor_rect;
+    internal Gdk.Rectangle stack_handle_rect;
+    internal double stack_handle_x;
+    internal double stack_handle_y;
+    internal double stack_handle_size;
+    internal double stack_handle_opacity;
+    internal double stack_fitted_icon_size;
+    int last_stack_item_count = -1;
+
+    /**
      * The pixel shift currently applied to keep this dock clear of others.
      */
     public int CollisionOffset {
@@ -940,6 +975,10 @@ namespace Plank {
       Alignment = prefs.Alignment;
       ItemsAlignment = prefs.ItemsAlignment;
       Offset = prefs.Offset;
+      StackMode = prefs.StackMode;
+      StackDirection = prefs.StackDirection;
+      StackAnimationSpeed = prefs.StackAnimationSpeed;
+      StackItemSpacing = prefs.StackItemSpacing;
 
       // Mirror position/alignments/offset for RTL environments if needed
       if (Gtk.Widget.get_default_direction () == Gtk.TextDirection.RTL) {
@@ -1012,6 +1051,33 @@ namespace Plank {
 
       update_dimensions ();
       update_regions ();
+
+      thaw_notify ();
+
+      if (Factory.main != null)
+        Factory.main.relayout_docks ();
+    }
+
+    int get_stack_peek_offset () {
+      return int.max (4, (int) Math.round (IconSize * 0.12));
+    }
+
+    void prefs_stack_changed () {
+      unowned DockPreferences prefs = controller.prefs;
+
+      freeze_notify ();
+
+      StackMode = prefs.StackMode;
+      StackDirection = prefs.StackDirection;
+      StackAnimationSpeed = prefs.StackAnimationSpeed;
+      StackItemSpacing = prefs.StackItemSpacing;
+
+      if (!StackMode)
+        controller.set_stack_expanded (false);
+
+      update_dimensions ();
+      update_regions ();
+      controller.renderer.reset_buffers ();
 
       thaw_notify ();
 
@@ -1098,20 +1164,45 @@ namespace Plank {
       // height of the dock window
       var dock_height = height + (screen_is_composited ? UrgentBounceHeight : 0) * (int) (Math.ceil (ZoomPercent));
 
+      var item_count = controller.VisibleItems.size;
+      last_stack_item_count = item_count;
+
       var width = 0;
-      switch (Alignment) {
-      default:
-      case Gtk.Align.START:
-      case Gtk.Align.END:
-      case Gtk.Align.CENTER:
-        width = get_items_width (controller.VisibleItems) + 2 * HorizPadding + 4 * LineWidth;
-        break;
-      case Gtk.Align.FILL:
-        if (is_horizontal_dock ())
-          width = monitor_geo.width;
-        else
-          width = monitor_geo.height;
-        break;
+      if (StackMode) {
+        var peek = get_stack_peek_offset ();
+        width = IconSize + 2 * peek + 2 * HorizPadding + 4 * LineWidth;
+        if (screen_is_composited) {
+          int dx, dy;
+          stack_direction_vector ((int) StackDirection, out dx, out dy);
+          var total_slots = int.max (1, item_count) + 1;
+          var zoom_headroom = controller.prefs.ZoomEnabled ? int.max (0, ZoomIconSize - IconSize) : 0;
+          var needed_perp = total_slots * (IconSize + StackItemSpacing)
+                            + top_offset + bottom_offset + int.max (zoom_headroom, 16) + 2 * peek;
+          var expands_perp = is_horizontal_dock () ? (dy != 0) : (dx != 0);
+          var max_perp = is_horizontal_dock () ? int.max (1, monitor_geo.height - GapSize)
+                                               : int.max (1, monitor_geo.width - GapSize);
+          if (expands_perp) {
+            dock_height = int.min (max_perp, int.max (dock_height, needed_perp));
+          } else {
+            dock_height = int.min (max_perp,
+                                   int.max (dock_height, IconSize + top_offset + bottom_offset + zoom_headroom + 2 * peek));
+          }
+        }
+      } else {
+        switch (Alignment) {
+        default:
+        case Gtk.Align.START:
+        case Gtk.Align.END:
+        case Gtk.Align.CENTER:
+          width = get_items_width (controller.VisibleItems) + 2 * HorizPadding + 4 * LineWidth;
+          break;
+        case Gtk.Align.FILL:
+          if (is_horizontal_dock ())
+            width = monitor_geo.width;
+          else
+            width = monitor_geo.height;
+          break;
+        }
       }
 
       // width of the dock background image, as drawn
@@ -1158,26 +1249,35 @@ namespace Plank {
      * @return the cursor region for the dock
      */
     public Gdk.Rectangle get_cursor_region () {
-      var cursor_region = static_dock_region;
-
-      switch (Position) {
-      case Gtk.PositionType.BOTTOM:
-      case Gtk.PositionType.TOP:
-        cursor_region.height = int.max (cursor_region.height, max_hover_height_cache);
-        break;
-      case Gtk.PositionType.LEFT:
-      case Gtk.PositionType.RIGHT:
-        cursor_region.width = int.max (cursor_region.width, max_hover_width_cache);
-        break;
-      }
-
       var progress = 1.0 - controller.renderer.hide_progress;
       window_scale_factor = controller.window.get_window ().get_scale_factor ();
 
-      unowned DockItem? hovered_item = controller.window.HoveredItem;
-      if (hovered_item != null) {
-        var hover_region = get_hover_region_for_element (hovered_item);
-        cursor_region.union (hover_region, out cursor_region);
+      if (StackMode && screen_is_composited) {
+        if (progress > 0.99 && stack_cursor_rect.width > 0 && stack_cursor_rect.height > 0)
+          return stack_cursor_rect;
+      }
+
+      var cursor_region = static_dock_region;
+
+      if (StackMode && stack_cursor_rect.width > 0 && stack_cursor_rect.height > 0) {
+        cursor_region = stack_cursor_rect;
+      } else {
+        switch (Position) {
+        case Gtk.PositionType.BOTTOM:
+        case Gtk.PositionType.TOP:
+          cursor_region.height = int.max (cursor_region.height, max_hover_height_cache);
+          break;
+        case Gtk.PositionType.LEFT:
+        case Gtk.PositionType.RIGHT:
+          cursor_region.width = int.max (cursor_region.width, max_hover_width_cache);
+          break;
+        }
+
+        unowned DockItem? hovered_item = controller.window.HoveredItem;
+        if (hovered_item != null) {
+          var hover_region = get_hover_region_for_element (hovered_item);
+          cursor_region.union (hover_region, out cursor_region);
+        }
       }
 
       // With a compositor, a hidden dock with a gap reveals through the edge
@@ -1252,6 +1352,11 @@ namespace Plank {
      */
     public void update_regions () {
       Logger.verbose ("PositionManager.update_regions ()");
+
+      if (StackMode && last_stack_item_count != controller.VisibleItems.size) {
+        update_dimensions ();
+        controller.renderer.reset_buffers ();
+      }
 
       var old_region = static_dock_region;
 
@@ -1559,6 +1664,206 @@ namespace Plank {
       return item.draw_value;
     }
 
+    void update_stack_draw_values (Gee.ArrayList<unowned DockItem> items, DrawValueFunc? func,
+                                   DrawValuesFunc? post_func) {
+      unowned DockRenderer renderer = controller.renderer;
+      var item_count = items.size;
+      if (item_count <= 0)
+        return;
+
+      var usable_x0 = int.max (0, monitor_geo.x - win_x);
+      var usable_y0 = int.max (0, monitor_geo.y - win_y);
+      var usable_x1 = int.min (DockWidth, monitor_geo.x + monitor_geo.width - win_x);
+      var usable_y1 = int.min (DockHeight, monitor_geo.y + monitor_geo.height - win_y);
+      Gdk.Rectangle usable_bounds = {
+        usable_x0,
+        usable_y0,
+        int.max (1, usable_x1 - usable_x0),
+        int.max (1, usable_y1 - usable_y0)
+      };
+
+      double origin_x, origin_y;
+      Gdk.Rectangle collapsed_bg_rect = {};
+      var bg_w = int.min (VisibleDockWidth, DockBackgroundWidth);
+      var bg_h = int.min (VisibleDockHeight, DockBackgroundHeight);
+
+      switch (Position) {
+      default:
+      case Gtk.PositionType.BOTTOM:
+        origin_x = static_dock_region.x + static_dock_region.width / 2.0;
+        origin_y = DockHeight - bottom_offset - IconSize / 2.0;
+        collapsed_bg_rect = {
+          static_dock_region.x + (VisibleDockWidth - bg_w) / 2,
+          DockHeight - DockBackgroundHeight,
+          DockBackgroundWidth,
+          DockBackgroundHeight
+        };
+        break;
+      case Gtk.PositionType.TOP:
+        origin_x = static_dock_region.x + static_dock_region.width / 2.0;
+        origin_y = bottom_offset + IconSize / 2.0;
+        collapsed_bg_rect = {
+          static_dock_region.x + (VisibleDockWidth - bg_w) / 2,
+          0,
+          DockBackgroundWidth,
+          DockBackgroundHeight
+        };
+        break;
+      case Gtk.PositionType.LEFT:
+        origin_x = bottom_offset + IconSize / 2.0;
+        origin_y = static_dock_region.y + static_dock_region.height / 2.0;
+        collapsed_bg_rect = {
+          0,
+          static_dock_region.y + (VisibleDockHeight - bg_h) / 2,
+          DockBackgroundWidth,
+          DockBackgroundHeight
+        };
+        break;
+      case Gtk.PositionType.RIGHT:
+        origin_x = DockWidth - bottom_offset - IconSize / 2.0;
+        origin_y = static_dock_region.y + static_dock_region.height / 2.0;
+        collapsed_bg_rect = {
+          DockWidth - DockBackgroundWidth,
+          static_dock_region.y + (VisibleDockHeight - bg_h) / 2,
+          DockBackgroundWidth,
+          DockBackgroundHeight
+        };
+        break;
+      }
+
+      var item_progresses = new double[item_count];
+      for (var i = 0; i < item_count; i++)
+        item_progresses[i] = renderer.get_stack_item_progress (i, item_count);
+
+      var handle_progress = renderer.get_stack_handle_progress ();
+      var pad_x = int.max (6, HorizPadding + 2 * LineWidth + ItemPadding / 2);
+      var pad_y = int.max (6, int.max (HorizPadding, BottomPadding) + 2 * LineWidth);
+
+      var layout = compute_stack_frame_layout (
+        origin_x, origin_y,
+        (int) StackDirection,
+        IconSize, StackItemSpacing,
+        pad_x, pad_y,
+        usable_bounds,
+        collapsed_bg_rect,
+        item_progresses,
+        handle_progress
+      );
+
+      int dx, dy;
+      stack_direction_vector ((int) StackDirection, out dx, out dy);
+
+      var zoom_progress = renderer.zoom_in_progress;
+      var cursor = renderer.local_cursor;
+      var apply_expanded_zoom = (ZoomPercent > 1.0 && zoom_progress > 0.0 && handle_progress > 0.35
+                                 && cursor.x >= layout.cursor_rect.x && cursor.x < layout.cursor_rect.x + layout.cursor_rect.width
+                                 && cursor.y >= layout.cursor_rect.y && cursor.y < layout.cursor_rect.y + layout.cursor_rect.height);
+
+      max_hover_width_cache = layout.background_rect.width;
+      max_hover_height_cache = layout.background_rect.height;
+
+      // Compute smooth hover zoom along the expansion axis without colliding adjacent items.
+      var zoom_scales = new double[item_count];
+      var zoom_offsets = new double[item_count];
+      if (apply_expanded_zoom) {
+        var radius = 1.75 * layout.fitted_icon_size;
+        var cumulative = 0.0;
+        for (var i = 0; i < item_count; i++) {
+          var axis_dist = Math.fabs ((layout.items[i].x - cursor.x) * dx + (layout.items[i].y - cursor.y) * dy);
+          var bell = (axis_dist < radius) ? (1.0 + Math.cos (Math.PI * axis_dist / radius)) / 2.0 : 0.0;
+          zoom_scales[i] = 1.0 + (ZoomPercent - 1.0) * zoom_progress * handle_progress * bell;
+          var extra = (zoom_scales[i] - 1.0) * layout.fitted_icon_size;
+          var signed_dist = (layout.items[i].x - cursor.x) * dx + (layout.items[i].y - cursor.y) * dy;
+          if (signed_dist >= 0)
+            zoom_offsets[i] = cumulative + 0.35 * extra;
+          else
+            zoom_offsets[i] = -0.35 * extra;
+          cumulative += 0.25 * extra;
+        }
+      } else {
+        var collapsed_boost = (ZoomPercent > 1.0 && controller.hide_manager.Hovered && handle_progress < 0.35)
+                              ? (1.0 + double.min (0.12, (ZoomPercent - 1.0) * 0.2) * zoom_progress * (1.0 - handle_progress))
+                              : 1.0;
+        for (var i = 0; i < item_count; i++)
+          zoom_scales[i] = (i == 0) ? collapsed_boost : 1.0;
+      }
+
+      var cursor_union = layout.cursor_rect;
+      var slot_pad = int.max (4, (int) Math.round (double.max (ItemPadding / 2.0, StackItemSpacing / 2.0)));
+
+      for (var i = 0; i < item_count; i++) {
+        unowned DockItem item = items[i];
+        unowned DockItemDrawValue draw_value = item.draw_value;
+        var st = layout.items[i];
+
+        var cx = st.x + dx * zoom_offsets[i];
+        var cy = st.y + dy * zoom_offsets[i];
+        var draw_size = st.icon_size * zoom_scales[i];
+
+        // Keep zoomed icon safely inside window usable bounds.
+        var half_z = draw_size / 2.0;
+        cx = double.max (usable_bounds.x + half_z + 2, double.min (usable_bounds.x + usable_bounds.width - half_z - 2, cx));
+        cy = double.max (usable_bounds.y + half_z + 2, double.min (usable_bounds.y + usable_bounds.height - half_z - 2, cy));
+
+        draw_value.center = { cx, cy };
+        draw_value.static_center = { cx, cy };
+        draw_value.icon_size = draw_size;
+        draw_value.zoom = draw_size / (double) IconSize;
+        draw_value.opacity = st.opacity;
+        draw_value.darken = 0.0;
+        draw_value.lighten = 0.0;
+        draw_value.show_indicator = (st.progress > 0.65);
+
+        if (func != null)
+          func (item, draw_value);
+
+        var r_x = (int) Math.round (draw_value.center.x - draw_value.icon_size / 2.0);
+        var r_y = (int) Math.round (draw_value.center.y - draw_value.icon_size / 2.0);
+        var r_size = (int) Math.round (draw_value.icon_size);
+        draw_value.draw_region = { r_x, r_y, r_size, r_size };
+
+        if (controller.StackExpanded && st.progress > 0.2) {
+          draw_value.hover_region = {
+            int.max (usable_bounds.x, r_x - slot_pad),
+            int.max (usable_bounds.y, r_y - slot_pad),
+            r_size + 2 * slot_pad,
+            r_size + 2 * slot_pad
+          };
+          Gdk.Rectangle z_rect = { r_x - 2, r_y - 2, r_size + 4, r_size + 4 };
+          cursor_union.union (z_rect, out cursor_union);
+        } else {
+          draw_value.hover_region = {};
+        }
+
+        draw_value.background_region = draw_value.draw_region;
+      }
+
+      if (post_func != null)
+        post_func (items);
+
+      stack_handle_x = layout.anchor_x;
+      stack_handle_y = layout.anchor_y;
+      stack_handle_size = layout.fitted_icon_size * layout.anchor_scale;
+      stack_handle_opacity = layout.anchor_opacity;
+      stack_fitted_icon_size = layout.fitted_icon_size;
+
+      var h_half = (int) Math.round (layout.fitted_icon_size / 2.0 + slot_pad);
+      stack_handle_rect = {
+        int.max (usable_bounds.x, (int) Math.round (layout.anchor_x) - h_half),
+        int.max (usable_bounds.y, (int) Math.round (layout.anchor_y) - h_half),
+        2 * h_half,
+        2 * h_half
+      };
+
+      background_rect = layout.background_rect;
+      if (!controller.StackExpanded && handle_progress <= 0.35 && static_dock_region.width > 0 && static_dock_region.height > 0)
+        cursor_union.union (static_dock_region, out cursor_union);
+      stack_cursor_rect = cursor_union;
+
+      if (renderer.stack_linear_progress <= 0.001 || renderer.stack_linear_progress >= 0.999)
+        controller.window.update_icon_regions ();
+    }
+
     /**
      * Update and recalculated all internal draw-values using the given methodes for custom manipulations.
      *
@@ -1570,6 +1875,11 @@ namespace Plank {
                                     DrawValuesFunc? post_func = null) {
       unowned DockPreferences prefs = controller.prefs;
       unowned DockRenderer renderer = controller.renderer;
+
+      if (StackMode) {
+        update_stack_draw_values (items, func, post_func);
+        return;
+      }
 
       // first we do the math as if this is a top dock, to do this we need to set
       // up some "pretend" variables. we pretend we are a top dock because 0,0 is
@@ -1957,6 +2267,26 @@ namespace Plank {
       if (items.size == 0)
         return {};
 
+      if (StackMode) {
+        if (!controller.StackExpanded)
+          return {};
+
+        Gdk.Rectangle stack_rect = {};
+        bool has_rect = false;
+        foreach (var child in items) {
+          var rect = get_hover_region_for_element (child);
+          if (rect.width <= 0 || rect.height <= 0)
+            continue;
+          if (!has_rect) {
+            stack_rect = rect;
+            has_rect = true;
+          } else {
+            stack_rect.union (rect, out stack_rect);
+          }
+        }
+        return stack_rect;
+      }
+
       var first_rect = get_hover_region_for_element (items.first ());
       if (items.size == 1)
         return first_rect;
@@ -2089,7 +2419,7 @@ namespace Plank {
         break;
       case Gtk.PositionType.TOP :
         x = win_x + rect.x + (rect.width - requisition.width) / 2;
-        y = win_y + rect.height + offset;
+        y = win_y + (StackMode ? rect.y + rect.height : rect.height) + offset;
         break;
       case Gtk.PositionType.LEFT :
         y = win_y + rect.y + (rect.height - requisition.height) / 2;
@@ -2098,6 +2428,80 @@ namespace Plank {
       case Gtk.PositionType.RIGHT :
         y = win_y + rect.y + (rect.height - requisition.height) / 2;
         x = win_x + rect.x - requisition.width - offset;
+        break;
+      }
+
+      if (StackMode) {
+        x = int.max (monitor_geo.x + 4, int.min (monitor_geo.x + monitor_geo.width - requisition.width - 4, x));
+        y = int.max (monitor_geo.y + 4, int.min (monitor_geo.y + monitor_geo.height - requisition.height - 4, y));
+      }
+    }
+
+    /**
+     * Gets the popup tooltip direction for expanded/collapsed stack items so
+     * tooltips never obscure neighboring stacked icons.
+     */
+    public Gtk.PositionType get_hover_tooltip_position () {
+      if (!StackMode || !controller.StackExpanded)
+        return Position;
+
+      int dx, dy;
+      stack_direction_vector ((int) StackDirection, out dx, out dy);
+      if (dy != 0) {
+        var screen_x = win_x + stack_handle_x;
+        var monitor_mid_x = monitor_geo.x + monitor_geo.width / 2.0;
+        return (Position == Gtk.PositionType.RIGHT || screen_x > monitor_mid_x)
+          ? Gtk.PositionType.RIGHT : Gtk.PositionType.LEFT;
+      }
+
+      return (Position == Gtk.PositionType.TOP) ? Gtk.PositionType.TOP : Gtk.PositionType.BOTTOM;
+    }
+
+    /**
+     * Checks whether a window-relative coordinate hits the stack collapse/expand handle.
+     */
+    public bool point_in_stack_toggle (int x, int y) {
+      if (!StackMode)
+        return false;
+
+      if (!controller.StackExpanded) {
+        var r = get_cursor_region ();
+        return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+      }
+
+      return x >= stack_handle_rect.x && x < stack_handle_rect.x + stack_handle_rect.width
+             && y >= stack_handle_rect.y && y < stack_handle_rect.y + stack_handle_rect.height;
+    }
+
+    /**
+     * Gets window-relative region of the stack collapse/expand handle.
+     */
+    public Gdk.Rectangle get_stack_handle_region () {
+      return controller.StackExpanded ? stack_handle_rect : get_cursor_region ();
+    }
+
+    /**
+     * Computes hover tooltip coordinates for the stack handle itself.
+     */
+    public void get_stack_toggle_hover_position (out int x, out int y) {
+      var offset = (int) Math.round (IconSize / 2.0 + BottomPadding + 8);
+      switch (Position) {
+      default:
+      case Gtk.PositionType.BOTTOM:
+        x = (int) Math.round (win_x + stack_handle_x);
+        y = (int) Math.round (win_y + stack_handle_y - offset);
+        break;
+      case Gtk.PositionType.TOP:
+        x = (int) Math.round (win_x + stack_handle_x);
+        y = (int) Math.round (win_y + stack_handle_y + offset);
+        break;
+      case Gtk.PositionType.LEFT:
+        x = (int) Math.round (win_x + stack_handle_x + offset);
+        y = (int) Math.round (win_y + stack_handle_y);
+        break;
+      case Gtk.PositionType.RIGHT:
+        x = (int) Math.round (win_x + stack_handle_x - offset);
+        y = (int) Math.round (win_y + stack_handle_y);
         break;
       }
     }
@@ -2110,10 +2514,12 @@ namespace Plank {
      * @param y the resulting y position
      */
     public void get_hover_position (DockItem hovered, out int x, out int y) {
-      var center = get_draw_value_for_item (hovered).static_center;
+      var draw_val = get_draw_value_for_item (hovered);
+      var center = StackMode ? draw_val.center : draw_val.static_center;
       var offset = (ZoomIconSize - IconSize / 2.0);
+      var pos = StackMode ? get_hover_tooltip_position () : Position;
 
-      switch (Position) {
+      switch (pos) {
       default :
       case Gtk.PositionType.BOTTOM :
         x = (int) Math.round (center.x + win_x);

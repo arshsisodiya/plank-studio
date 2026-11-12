@@ -43,6 +43,8 @@ namespace Plank {
     unowned Gtk.ComboBoxText cb_alignment;
     [GtkChild]
     unowned Gtk.ComboBoxText cb_items_alignment;
+    [GtkChild]
+    unowned Gtk.ComboBoxText cb_stack_direction;
 
     [GtkChild]
     unowned Gtk.SpinButton sp_hide_delay;
@@ -58,6 +60,10 @@ namespace Plank {
     unowned Gtk.Scale s_active_display_polling_interval;
     [GtkChild]
     unowned Gtk.Scale s_zoom_percent;
+    [GtkChild]
+    unowned Gtk.Scale s_stack_speed;
+    [GtkChild]
+    unowned Gtk.Scale s_stack_spacing;
 
     [GtkChild]
     unowned Gtk.Adjustment adj_hide_delay;
@@ -77,6 +83,10 @@ namespace Plank {
     unowned Gtk.Adjustment adj_active_display_polling_interval;
     [GtkChild]
     unowned Gtk.Adjustment adj_zoom_percent;
+    [GtkChild]
+    unowned Gtk.Adjustment adj_stack_speed;
+    [GtkChild]
+    unowned Gtk.Adjustment adj_stack_spacing;
 
     [GtkChild]
     unowned Gtk.Switch sw_hide;
@@ -104,6 +114,8 @@ namespace Plank {
     unowned Gtk.Switch sw_pressure_reveal;
     [GtkChild]
     unowned Gtk.Switch sw_zoom_enabled;
+    [GtkChild]
+    unowned Gtk.Switch sw_stack_mode;
     [GtkChild]
     unowned Gtk.Switch sw_bring_to_workspace;
     [GtkChild]
@@ -310,9 +322,23 @@ namespace Plank {
         break;
       case "ZoomEnabled":
         sw_zoom_enabled.set_active (prefs.ZoomEnabled);
+        s_zoom_percent.sensitive = prefs.ZoomEnabled;
         break;
       case "ZoomPercent":
         adj_zoom_percent.value = prefs.ZoomPercent;
+        break;
+      case "StackMode":
+        sw_stack_mode.set_active (prefs.StackMode);
+        set_stack_controls_sensitive (prefs.StackMode);
+        break;
+      case "StackDirection":
+        cb_stack_direction.active_id = ((int) prefs.StackDirection).to_string ();
+        break;
+      case "StackAnimationSpeed":
+        adj_stack_speed.value = prefs.StackAnimationSpeed;
+        break;
+      case "StackItemSpacing":
+        adj_stack_spacing.value = prefs.StackItemSpacing;
         break;
       case "ActiveDisplay":
         sw_active_display.set_active (prefs.ActiveDisplay);
@@ -474,6 +500,32 @@ namespace Plank {
       prefs.ZoomPercent = (int) adj.value;
     }
 
+    void set_stack_controls_sensitive (bool active) {
+      cb_stack_direction.sensitive = active;
+      s_stack_speed.sensitive = active;
+      s_stack_spacing.sensitive = active;
+    }
+
+    void stack_mode_toggled (GLib.Object widget, ParamSpec param) {
+      var active = ((Gtk.Switch) widget).get_active ();
+      prefs.StackMode = active;
+      set_stack_controls_sensitive (active);
+    }
+
+    void stack_direction_changed (Gtk.ComboBox widget) {
+      var active_id = widget.get_active_id ();
+      if (active_id != null)
+        prefs.StackDirection = (StackDirection) int.parse (active_id);
+    }
+
+    void stack_speed_changed (Gtk.Adjustment adj) {
+      prefs.StackAnimationSpeed = (int) adj.value;
+    }
+
+    void stack_spacing_changed (Gtk.Adjustment adj) {
+      prefs.StackItemSpacing = (int) adj.value;
+    }
+
     void monitor_changed (Gtk.ComboBox widget) {
       prefs.Monitor = ((Gtk.ComboBoxText) widget).get_active_text ();
     }
@@ -569,6 +621,10 @@ namespace Plank {
       sw_anchor_files.notify["active"].connect (anchor_files_toggled);
       sw_pressure_reveal.notify["active"].connect (pressure_reveal_toggled);
       sw_zoom_enabled.notify["active"].connect (zoom_enabled_toggled);
+      sw_stack_mode.notify["active"].connect (stack_mode_toggled);
+      cb_stack_direction.changed.connect (stack_direction_changed);
+      adj_stack_speed.value_changed.connect (stack_speed_changed);
+      adj_stack_spacing.value_changed.connect (stack_spacing_changed);
       cb_alignment.changed.connect (alignment_changed);
       cb_items_alignment.changed.connect (items_alignment_changed);
     }
@@ -608,6 +664,10 @@ namespace Plank {
       sw_anchor_files.notify["active"].disconnect (anchor_files_toggled);
       sw_pressure_reveal.notify["active"].disconnect (pressure_reveal_toggled);
       sw_zoom_enabled.notify["active"].disconnect (zoom_enabled_toggled);
+      sw_stack_mode.notify["active"].disconnect (stack_mode_toggled);
+      cb_stack_direction.changed.disconnect (stack_direction_changed);
+      adj_stack_speed.value_changed.disconnect (stack_speed_changed);
+      adj_stack_spacing.value_changed.disconnect (stack_spacing_changed);
       cb_alignment.changed.disconnect (alignment_changed);
       cb_items_alignment.changed.disconnect (items_alignment_changed);
     }
@@ -670,6 +730,11 @@ namespace Plank {
       sw_anchor_files.set_active (prefs.AnchorFiles);
       sw_pressure_reveal.set_active (prefs.PressureReveal);
       sw_zoom_enabled.set_active (prefs.ZoomEnabled);
+      sw_stack_mode.set_active (prefs.StackMode);
+      cb_stack_direction.active_id = ((int) prefs.StackDirection).to_string ();
+      adj_stack_speed.value = prefs.StackAnimationSpeed;
+      adj_stack_spacing.value = prefs.StackItemSpacing;
+      set_stack_controls_sensitive (prefs.StackMode);
       cb_alignment.active_id = ((int) prefs.Alignment).to_string ();
       cb_items_alignment.active_id = ((int) prefs.ItemsAlignment).to_string ();
       cb_items_alignment.sensitive = (prefs.Alignment == Gtk.Align.FILL);

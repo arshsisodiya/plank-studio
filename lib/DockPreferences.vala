@@ -144,6 +144,23 @@ namespace Plank {
     [Description (nick = "preview-size", blurb = "The largest width of a window preview's thumbnail (in pixels).")]
     public int PreviewSize { get; set; }
 
+    public const int MIN_STACK_ANIMATION_SPEED = 100;
+    public const int MAX_STACK_ANIMATION_SPEED = 800;
+    public const int MIN_STACK_ITEM_SPACING = 0;
+    public const int MAX_STACK_ITEM_SPACING = 48;
+
+    [Description (nick = "stack-mode", blurb = "If true, display dock items in a collapsible stack.")]
+    public bool StackMode { get; set; }
+
+    [Description (nick = "stack-direction", blurb = "The direction items expand when clicking a stackable dock.")]
+    public StackDirection StackDirection { get; set; }
+
+    [Description (nick = "stack-animation-speed", blurb = "Duration of the stack expand/collapse animation, in milliseconds.")]
+    public int StackAnimationSpeed { get; set; }
+
+    [Description (nick = "stack-item-spacing", blurb = "Spacing between expanded stack items, in pixels.")]
+    public int StackItemSpacing { get; set; }
+
     /**
      * {@inheritDoc}
      */
@@ -234,6 +251,18 @@ namespace Plank {
           Theme = Plank.Theme.DEFAULT_NAME;
         else if (Theme.contains ("/"))
           Theme = Theme.replace ("/", "");
+        break;
+      case "StackAnimationSpeed":
+        if (StackAnimationSpeed < MIN_STACK_ANIMATION_SPEED)
+          StackAnimationSpeed = MIN_STACK_ANIMATION_SPEED;
+        else if (StackAnimationSpeed > MAX_STACK_ANIMATION_SPEED)
+          StackAnimationSpeed = MAX_STACK_ANIMATION_SPEED;
+        break;
+      case "StackItemSpacing":
+        if (StackItemSpacing < MIN_STACK_ITEM_SPACING)
+          StackItemSpacing = MIN_STACK_ITEM_SPACING;
+        else if (StackItemSpacing > MAX_STACK_ITEM_SPACING)
+          StackItemSpacing = MAX_STACK_ITEM_SPACING;
         break;
       }
     }

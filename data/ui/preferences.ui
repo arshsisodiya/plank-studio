@@ -63,6 +63,20 @@ along with plank.  If not, see <http://www.gnu.org/licenses/>.
     <property name="step_increment">5</property>
     <property name="page_increment">10</property>
   </object>
+  <object class="GtkAdjustment" id="adj_stack_speed">
+    <property name="lower">100</property>
+    <property name="upper">800</property>
+    <property name="value">340</property>
+    <property name="step_increment">10</property>
+    <property name="page_increment">50</property>
+  </object>
+  <object class="GtkAdjustment" id="adj_stack_spacing">
+    <property name="lower">0</property>
+    <property name="upper">48</property>
+    <property name="value">10</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">4</property>
+  </object>
   <object class="GtkAdjustment" id="adj_active_display_polling_interval">
     <property name="lower">1</property>
     <property name="upper">10</property>
@@ -1177,6 +1191,152 @@ along with plank.  If not, see <http://www.gnu.org/licenses/>.
                       <packing>
                         <property name="left_attach">0</property>
                         <property name="top_attach">3</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_stack_section">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="margin_top">12</property>
+                        <property name="label" translatable="yes">Stackable Dock</property>
+                        <attributes>
+                          <attribute name="weight" value="bold" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">4</property>
+                        <property name="width">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_stack_mode">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Stackable mode:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSwitch" id="sw_stack_mode">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="halign">start</property>
+                        <property name="valign">center</property>
+                        <property name="tooltip_text" translatable="yes">Collapse items into a compact stack that expands smoothly when clicked</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_stack_direction">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Expand direction:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="cb_stack_direction">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="tooltip_text" translatable="yes">Direction items fan out when clicking the collapsed dock stack</property>
+                        <items>
+                          <item id="0" translatable="yes">Upwards</item>
+                          <item id="1" translatable="yes">Downwards</item>
+                          <item id="2" translatable="yes">Left</item>
+                          <item id="3" translatable="yes">Right</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_stack_speed">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Animation speed (ms):</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">7</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_stack_speed">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="adjustment">adj_stack_speed</property>
+                        <property name="digits">0</property>
+                        <property name="value_pos">right</property>
+                        <property name="tooltip_text" translatable="yes">Duration of expand and collapse animations in milliseconds (lower is faster)</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">7</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_stack_spacing">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Expanded item spacing:</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">8</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="s_stack_spacing">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="adjustment">adj_stack_spacing</property>
+                        <property name="digits">0</property>
+                        <property name="value_pos">right</property>
+                        <property name="tooltip_text" translatable="yes">Extra spacing between items in pixels when the stack is expanded</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">8</property>
+                        <property name="width">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="l_stack_hint">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">start</property>
+                        <property name="xalign">0</property>
+                        <property name="wrap">True</property>
+                        <property name="label" translatable="yes">Click the compact stack to smoothly expand items. Click the stack handle or outside the dock to collapse it back.</property>
+                        <attributes>
+                          <attribute name="scale" value="0.85" />
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">9</property>
                         <property name="width">4</property>
                       </packing>
                     </child>

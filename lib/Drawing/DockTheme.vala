@@ -227,6 +227,46 @@ namespace Plank {
     }
 
     /**
+     * Draws the dock background directly onto a target context without
+     * allocating temporary Xlib surfaces on every animation frame.
+     */
+    internal void draw_background_direct (Cairo.Context cr, int x, int y, int width, int height,
+                                          Gtk.PositionType position) {
+      if (width <= 0 || height <= 0)
+        return;
+
+      cr.save ();
+      cr.translate (x, y);
+
+      int draw_w = width;
+      int draw_h = height;
+      switch (position) {
+      default:
+      case Gtk.PositionType.BOTTOM:
+        break;
+      case Gtk.PositionType.TOP:
+        cr.translate (width, height);
+        cr.rotate (Math.PI);
+        break;
+      case Gtk.PositionType.LEFT:
+        cr.translate (width, 0);
+        cr.rotate (Math.PI_2);
+        draw_w = height;
+        draw_h = width;
+        break;
+      case Gtk.PositionType.RIGHT:
+        cr.translate (0, height);
+        cr.rotate (-Math.PI_2);
+        draw_w = height;
+        draw_h = width;
+        break;
+      }
+
+      draw_background_on_context (cr, draw_w, draw_h);
+      cr.restore ();
+    }
+
+    /**
      * Creates a surface for an indicator.
      *
      * @param size the size of the indicator

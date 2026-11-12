@@ -77,6 +77,12 @@ namespace Plank {
 
     double dynamic_animation_offset = 0.0;
 
+    public double stack_linear_progress { get; private set; default = 0.0; }
+    double stack_start_progress = 0.0;
+    double stack_handle_start_progress = 0.0;
+    int64 last_stack_toggle = 0LL;
+    double[]? stack_item_start_progress = null;
+
     Gee.ArrayList<unowned DockItem> current_items;
     Gee.HashSet<DockItem> transient_items;
 #if BENCHMARK
@@ -290,6 +296,14 @@ namespace Plank {
       else
         opacity = 1.0;
 
+      if (controller.prefs.StackMode) {
+        stack_linear_progress = stack_compute_linear_progress (
+          controller.StackExpanded, stack_start_progress,
+          last_stack_toggle, frame_time, position_manager.StackAnimationSpeed);
+      } else {
+        stack_linear_progress = 0.0;
+      }
+
       // Update *ordered* list of items
       current_items.clear ();
       current_items.add_all (new_items);
@@ -435,22 +449,46 @@ namespace Plank {
       // Cache shadow size check to avoid repeated method calls in loop
       bool has_shadows = (theme.IconShadowSize > 0);
 
-      // draw each item onto the dock buffer
-      foreach (unowned DockItem item in current_items) {
-#if BENCHMARK
-        start2 = new DateTime.now_local ();
-#endif
-        // Do not draw the currently dragged item
-        if (item.IsVisible && dragged_item != item) {
-          var draw_value = position_manager.get_draw_value_for_item (item);
-          draw_item (item_cr, item, draw_value, frame_time);
-          if (has_shadows)
-            draw_item_shadow (shadow_cr, item, draw_value);
+      if (position_manager.StackMode) {
+        unowned DockItem? hovered = (stack_linear_progress > 0.7) ? controller.window.HoveredItem : null;
+        for (int i = current_items.size - 1; i >= 0; i--) {
+          unowned DockItem item = current_items[i];
+          if (item.IsVisible && dragged_item != item && item != hovered) {
+            var draw_value = position_manager.get_draw_value_for_item (item);
+            draw_stack_item (item_cr, item, draw_value, frame_time);
+            if (has_shadows)
+              draw_stack_item_shadow (shadow_cr, item, draw_value);
+          }
         }
+        if (hovered != null && hovered.IsVisible && dragged_item != hovered && current_items.contains (hovered)) {
+          var draw_value = position_manager.get_draw_value_for_item (hovered);
+          draw_stack_item (item_cr, hovered, draw_value, frame_time);
+          if (has_shadows)
+            draw_stack_item_shadow (shadow_cr, hovered, draw_value);
+        }
+
+        if (position_manager.stack_handle_opacity > 0.01)
+          draw_stack_handle (item_cr);
+        if (stack_linear_progress < 0.5)
+          draw_stack_collapsed_badge (item_cr);
+      } else {
+        // draw each item onto the dock buffer
+        foreach (unowned DockItem item in current_items) {
 #if BENCHMARK
-        end2 = new DateTime.now_local ();
-        benchmark.add ("item render time - %f ms".printf (end2.difference (start2) / 1000.0));
+          start2 = new DateTime.now_local ();
 #endif
+          // Do not draw the currently dragged item
+          if (item.IsVisible && dragged_item != item) {
+            var draw_value = position_manager.get_draw_value_for_item (item);
+            draw_item (item_cr, item, draw_value, frame_time);
+            if (has_shadows)
+              draw_item_shadow (shadow_cr, item, draw_value);
+          }
+#if BENCHMARK
+          end2 = new DateTime.now_local ();
+          benchmark.add ("item render time - %f ms".printf (end2.difference (start2) / 1000.0));
+#endif
+        }
       }
 
       // draw items-shadow-layer
@@ -525,17 +563,24 @@ namespace Plank {
         return;
       }
 
-      if (background_buffer == null || background_buffer.Width != background_rect.width
-          || background_buffer.Height != background_rect.height)
-        background_buffer = theme.create_background (background_rect.width, background_rect.height,
-                                                     position_manager.Position, main_buffer);
-
       if (hide_progress > 0.0 && theme.CascadeHide) {
         int x, y;
         position_manager.get_background_padding (out x, out y);
         x_offset -= (int) (x * hide_progress);
         y_offset -= (int) (y * hide_progress);
       }
+
+      if (position_manager.StackMode && stack_linear_progress > 0.0001 && stack_linear_progress < 0.9999) {
+        theme.draw_background_direct (
+          cr, background_rect.x + x_offset, background_rect.y + y_offset,
+          background_rect.width, background_rect.height, position_manager.Position);
+        return;
+      }
+
+      if (background_buffer == null || background_buffer.Width != background_rect.width
+          || background_buffer.Height != background_rect.height)
+        background_buffer = theme.create_background (background_rect.width, background_rect.height,
+                                                     position_manager.Position, main_buffer);
 
       cr.set_source_surface (background_buffer.Internal, background_rect.x + x_offset, background_rect.y + y_offset);
       cr.paint ();
@@ -763,6 +808,59 @@ namespace Plank {
       return private_icon_surface;
     }
 
+    Surface resolve_item_surface (DockItem item, DockItemDrawValue draw_value, int icon_size) {
+      Surface? icon_overlay_surface = null;
+      if (item.CountVisible || item.ProgressVisible)
+        icon_overlay_surface = item.get_foreground_surface (icon_size, icon_size, item_buffer, (DrawDataFunc<DockItem>) draw_item_foreground);
+
+      const double EFFECT_THRESHOLD = 0.01;
+      bool has_lighten = draw_value.lighten > EFFECT_THRESHOLD;
+      bool has_darken = draw_value.darken > EFFECT_THRESHOLD;
+      if (icon_overlay_surface == null && !has_lighten && !has_darken)
+        return get_item_surface (item, icon_size);
+
+      var base_surface = get_item_surface (item, icon_size);
+      if (scratch_surface == null || scratch_surface_size < icon_size) {
+        scratch_surface = new Surface.with_surface (icon_size, icon_size, base_surface);
+        scratch_surface_size = icon_size;
+      }
+
+      scratch_surface.clear ();
+      unowned Cairo.Context scratch_cr = scratch_surface.Context;
+      scratch_cr.set_source_surface (base_surface.Internal, 0, 0);
+      scratch_cr.paint ();
+
+      if (icon_overlay_surface != null) {
+        scratch_cr.set_source_surface (icon_overlay_surface.Internal, 0, 0);
+        scratch_cr.paint ();
+      }
+
+      if (has_lighten) {
+        scratch_cr.set_operator (Cairo.Operator.ADD);
+        scratch_cr.paint_with_alpha (draw_value.lighten);
+        scratch_cr.set_operator (Cairo.Operator.OVER);
+      }
+
+      if (has_darken) {
+        scratch_cr.rectangle (0, 0, icon_size, icon_size);
+        scratch_cr.set_source_rgba (0, 0, 0, draw_value.darken);
+        scratch_cr.set_operator (Cairo.Operator.ATOP);
+        scratch_cr.fill ();
+        scratch_cr.set_operator (Cairo.Operator.OVER);
+      }
+
+      return scratch_surface;
+    }
+
+    int get_stack_base_logical_size (DockItemDrawValue draw_value) {
+      unowned PositionManager pm = controller.position_manager;
+      var fitted = (pm.stack_fitted_icon_size > 0.0) ? (int) Math.round (pm.stack_fitted_icon_size) : pm.IconSize;
+      bool stack_animating = (stack_linear_progress > 0.0001 && stack_linear_progress < 0.9999);
+      if (!stack_animating && draw_value.icon_size > fitted + 1.0)
+        return int.max (16, (int) Math.round (draw_value.icon_size));
+      return int.max (16, fitted);
+    }
+
     void draw_item (Cairo.Context cr, DockItem item, DockItemDrawValue draw_value, int64 frame_time) {
       unowned PositionManager position_manager = controller.position_manager;
       var icon_size = (int) draw_value.icon_size * window_scale_factor;
@@ -772,64 +870,7 @@ namespace Plank {
 #if BENCHMARK
       var start = new DateTime.now_local ();
 #endif
-      // Check if we need to modify the surface (overlay, lighten, or darken)
-      // Only copy if modifications are needed to avoid allocation overhead
-      Surface? icon_overlay_surface = null;
-      if (item.CountVisible || item.ProgressVisible)
-        icon_overlay_surface = item.get_foreground_surface (icon_size, icon_size, item_buffer, (DrawDataFunc<DockItem>) draw_item_foreground);
-
-      // Apply threshold to skip tiny lighten/darken values that are imperceptible
-      // This avoids surface operations during animation tails
-      const double EFFECT_THRESHOLD = 0.01;
-      bool has_lighten = draw_value.lighten > EFFECT_THRESHOLD;
-      bool has_darken = draw_value.darken > EFFECT_THRESHOLD;
-      bool needs_surface_modification = (icon_overlay_surface != null || has_lighten || has_darken);
-
-      Surface icon_surface;
-      if (needs_surface_modification) {
-        // Get the base icon surface
-        var base_surface = get_item_surface (item, icon_size);
-
-        // Reuse scratch surface if possible, otherwise create/resize it
-        if (scratch_surface == null || scratch_surface_size < icon_size) {
-          scratch_surface = new Surface.with_surface (icon_size, icon_size, base_surface);
-          scratch_surface_size = icon_size;
-        }
-
-        // Clear and copy base surface to scratch
-        scratch_surface.clear ();
-        unowned Cairo.Context scratch_cr = scratch_surface.Context;
-        scratch_cr.set_source_surface (base_surface.Internal, 0, 0);
-        scratch_cr.paint ();
-
-        if (icon_overlay_surface != null) {
-          scratch_cr.set_source_surface (icon_overlay_surface.Internal, 0, 0);
-          scratch_cr.paint ();
-        }
-
-        // lighten the icon
-        // Note: source is already set to base_surface from the copy above,
-        // or to icon_overlay_surface if overlay was applied (matching original behavior)
-        if (has_lighten) {
-          scratch_cr.set_operator (Cairo.Operator.ADD);
-          scratch_cr.paint_with_alpha (draw_value.lighten);
-          scratch_cr.set_operator (Cairo.Operator.OVER);
-        }
-
-        // darken the icon
-        if (has_darken) {
-          scratch_cr.rectangle (0, 0, icon_size, icon_size);
-          scratch_cr.set_source_rgba (0, 0, 0, draw_value.darken);
-          scratch_cr.set_operator (Cairo.Operator.ATOP);
-          scratch_cr.fill ();
-          scratch_cr.set_operator (Cairo.Operator.OVER);
-        }
-
-        icon_surface = scratch_surface;
-      } else {
-        // No modifications needed - use cached surface directly
-        icon_surface = get_item_surface (item, icon_size);
-      }
+      var icon_surface = resolve_item_surface (item, draw_value, icon_size);
 
 #if BENCHMARK
       var end = new DateTime.now_local ();
@@ -843,7 +884,7 @@ namespace Plank {
         opacity = 1 - opacity;
       }
 
-      if (opacity > 0) {
+      if (draw_value.show_indicator && opacity > 0) {
         var color = (theme.use_average_icon_color () ? item.AverageIconColor : theme.ActiveItemColor);
         theme.draw_active_glow (item_buffer, background_rect, draw_value.background_region, color, opacity, position);
       }
@@ -865,6 +906,83 @@ namespace Plank {
       // draw indicators
       if (draw_value.show_indicator)
         draw_indicator_state (cr, draw_value.hover_region, item.Indicator, item.State);
+    }
+
+    /**
+     * Renders a stack item using a warm cached base surface with subpixel
+     * translation and scaling so expand/collapse transitions never stutter.
+     */
+    void draw_stack_item (Cairo.Context cr, DockItem item, DockItemDrawValue draw_value, int64 frame_time) {
+      if (draw_value.opacity <= 0.01)
+        return;
+
+      unowned PositionManager position_manager = controller.position_manager;
+      var base_logical = get_stack_base_logical_size (draw_value);
+      var base_px = base_logical * window_scale_factor;
+      var icon_surface = resolve_item_surface (item, draw_value, base_px);
+
+      var active_time = int64.max (0LL, frame_time - item.LastActive);
+      var active_opacity = double.min (1, active_time / (double) (theme.ActiveTime * 1000));
+      if ((item.State & ItemState.ACTIVE) == 0)
+        active_opacity = 1 - active_opacity;
+
+      if (draw_value.show_indicator && active_opacity > 0) {
+        var color = (theme.use_average_icon_color () ? item.AverageIconColor : theme.ActiveItemColor);
+        theme.draw_active_glow (item_buffer, background_rect, draw_value.background_region, color,
+                                active_opacity * draw_value.opacity, position_manager.Position);
+      }
+
+      var scale = draw_value.icon_size / (double) base_logical;
+      cr.save ();
+      if (window_scale_factor > 1)
+        cr.scale (1.0 / window_scale_factor, 1.0 / window_scale_factor);
+      cr.translate (draw_value.center.x * window_scale_factor, draw_value.center.y * window_scale_factor);
+      cr.scale (scale, scale);
+      cr.set_source_surface (icon_surface.Internal, -base_px / 2.0, -base_px / 2.0);
+      unowned Cairo.Pattern? pat = cr.get_source ();
+      if (pat != null)
+        pat.set_filter (Cairo.Filter.BILINEAR);
+      if (draw_value.opacity < 1.0)
+        cr.paint_with_alpha (draw_value.opacity);
+      else
+        cr.paint ();
+      cr.restore ();
+
+      if (draw_value.show_indicator)
+        draw_indicator_state (cr, draw_value.hover_region, item.Indicator, item.State);
+    }
+
+    void draw_stack_item_shadow (Cairo.Context cr, DockItem item, DockItemDrawValue draw_value) {
+      if (draw_value.opacity <= 0.01)
+        return;
+
+      var base_logical = get_stack_base_logical_size (draw_value);
+      var shadow_size = theme.IconShadowSize * (base_logical / 10.0);
+      if (shadow_size <= 0)
+        return;
+
+      var shadow_px = (int) (base_logical + 2 * shadow_size) * window_scale_factor;
+      Surface? icon_shadow_surface = item.get_background_surface (shadow_px, shadow_px, item_buffer,
+                                                                  (DrawDataFunc<DockItem>) draw_item_background);
+      if (icon_shadow_surface == null)
+        return;
+
+      var scale = draw_value.icon_size / (double) base_logical;
+      cr.save ();
+      if (window_scale_factor > 1)
+        cr.scale (1.0 / window_scale_factor, 1.0 / window_scale_factor);
+      cr.translate (draw_value.center.x * window_scale_factor, draw_value.center.y * window_scale_factor);
+      cr.scale (scale, scale);
+      cr.set_operator (Cairo.Operator.OVER);
+      cr.set_source_surface (icon_shadow_surface.Internal, -shadow_px / 2.0, -shadow_px / 2.0);
+      unowned Cairo.Pattern? pat = cr.get_source ();
+      if (pat != null)
+        pat.set_filter (Cairo.Filter.BILINEAR);
+      if (draw_value.opacity < 1.0)
+        cr.paint_with_alpha (draw_value.opacity);
+      else
+        cr.paint ();
+      cr.restore ();
     }
 
     void draw_item_shadow (Cairo.Context cr, DockItem item, DockItemDrawValue draw_value) {
@@ -1064,6 +1182,149 @@ namespace Plank {
       animated_draw ();
     }
 
+    internal void stack_expanded_changed () {
+      var now = force_frame_time_update ();
+      var count = current_items.size;
+      if (count > 0) {
+        var snapshots = new double[count];
+        for (var i = 0; i < count; i++)
+          snapshots[i] = get_stack_item_progress (i, count);
+        stack_item_start_progress = (owned) snapshots;
+      } else {
+        stack_item_start_progress = null;
+      }
+
+      stack_handle_start_progress = get_stack_handle_progress ();
+      stack_start_progress = stack_linear_progress;
+      last_stack_toggle = now;
+
+      animated_draw ();
+    }
+
+    internal double get_stack_handle_progress () {
+      var target = controller.StackExpanded ? 1.0 : 0.0;
+      if (last_stack_toggle <= 0LL)
+        return target;
+
+      var linear = stack_compute_linear_progress (
+        controller.StackExpanded, stack_handle_start_progress,
+        last_stack_toggle, frame_time, controller.position_manager.StackAnimationSpeed);
+      var dist = Math.fabs (target - stack_handle_start_progress);
+      if (dist <= 0.0001)
+        return target;
+
+      var frac = Math.fabs (linear - stack_handle_start_progress) / dist;
+      return stack_handle_start_progress + (target - stack_handle_start_progress) * stack_ease_curve (frac, controller.StackExpanded);
+    }
+
+    internal double get_stack_item_progress (int index, int count) {
+      var start = (stack_item_start_progress != null && index < stack_item_start_progress.length)
+                  ? stack_item_start_progress[index]
+                  : (last_stack_toggle > 0LL ? stack_linear_progress : (controller.StackExpanded ? 1.0 : 0.0));
+      return stack_staggered_progress (
+        controller.StackExpanded, start,
+        last_stack_toggle, frame_time, controller.position_manager.StackAnimationSpeed,
+        index, count);
+    }
+
+    void draw_rounded_box (Cairo.Context cr, double x, double y, double size, double radius) {
+      var r = double.min (radius, size / 2.0);
+      cr.new_sub_path ();
+      cr.arc (x + size - r, y + r, r, -Math.PI_2, 0.0);
+      cr.arc (x + size - r, y + size - r, r, 0.0, Math.PI_2);
+      cr.arc (x + r, y + size - r, r, Math.PI_2, Math.PI);
+      cr.arc (x + r, y + r, r, Math.PI, Math.PI + Math.PI_2);
+      cr.close_path ();
+    }
+
+    void draw_directional_chevron (Cairo.Context cr, double cx, double cy, double arm, int dx, int dy) {
+      cr.save ();
+      cr.translate (cx, cy);
+      cr.rotate (Math.atan2 (dy, dx));
+      cr.move_to (-arm * 0.45, -arm);
+      cr.line_to (arm * 0.55, 0.0);
+      cr.line_to (-arm * 0.45, arm);
+      cr.set_line_cap (Cairo.LineCap.ROUND);
+      cr.set_line_join (Cairo.LineJoin.ROUND);
+      cr.stroke ();
+      cr.restore ();
+    }
+
+    void draw_stack_handle (Cairo.Context cr) {
+      unowned PositionManager pm = controller.position_manager;
+      var alpha = pm.stack_handle_opacity * (1.0 - hide_progress);
+      if (alpha <= 0.01)
+        return;
+
+      var size = double.max (18.0, pm.stack_handle_size * 0.84);
+      var cx = pm.stack_handle_x;
+      var cy = pm.stack_handle_y;
+      var hovered = (controller.hide_manager.Hovered
+                     && pm.point_in_stack_toggle (local_cursor.x, local_cursor.y));
+      var boost = hovered ? 0.14 : 0.0;
+
+      int dx, dy;
+      stack_direction_vector ((int) pm.StackDirection, out dx, out dy);
+
+      cr.save ();
+      draw_rounded_box (cr, cx - size / 2.0, cy - size / 2.0, size, size * 0.28);
+      cr.set_source_rgba (0.16 + boost, 0.17 + boost, 0.20 + boost, 0.86 * alpha);
+      cr.fill_preserve ();
+      cr.set_line_width (double.max (1.0, size * 0.035));
+      cr.set_source_rgba (1.0, 1.0, 1.0, (0.28 + boost) * alpha);
+      cr.stroke ();
+
+      // Layered stack bars on handle + inward collapse chevron pointing toward stack origin.
+      cr.set_source_rgba (1.0, 1.0, 1.0, 0.92 * alpha);
+      cr.set_line_width (double.max (1.5, size * 0.08));
+      draw_directional_chevron (cr, cx, cy, size * 0.21, -dx, -dy);
+      cr.restore ();
+    }
+
+    void draw_stack_collapsed_badge (Cairo.Context cr) {
+      unowned PositionManager pm = controller.position_manager;
+      var fade = (1.0 - stack_smoothstep (0.0, 0.36, stack_linear_progress)) * (1.0 - hide_progress);
+      if (fade <= 0.01)
+        return;
+
+      int dx, dy;
+      stack_direction_vector ((int) pm.StackDirection, out dx, out dy);
+
+      double base_cx = pm.stack_handle_x;
+      double base_cy = pm.stack_handle_y;
+      double icon_sz = (double) pm.IconSize;
+      if (current_items.size > 0) {
+        var front_val = pm.get_draw_value_for_item (current_items[0]);
+        base_cx = front_val.center.x;
+        base_cy = front_val.center.y;
+        icon_sz = double.max (18.0, front_val.icon_size);
+      }
+
+      var pill_r = double.max (7.0, icon_sz * 0.19);
+      var offset = double.max (10.0, icon_sz * 0.34);
+      var cross_x = (pm.Position == Gtk.PositionType.RIGHT) ? -offset * 0.82 : offset * 0.82;
+      var cross_y = (pm.Position == Gtk.PositionType.TOP) ? offset * 0.82 : -offset * 0.82;
+      var bx = base_cx + (dx != 0 ? dx * offset : cross_x);
+      var by = base_cy + (dy != 0 ? dy * offset : cross_y);
+
+      var r_bounds = pm.get_dock_window_region ();
+      bx = double.max (pill_r + 2.0, double.min (r_bounds.width - pill_r - 2.0, bx));
+      by = double.max (pill_r + 2.0, double.min (r_bounds.height - pill_r - 2.0, by));
+
+      cr.save ();
+      cr.arc (bx, by, pill_r, 0.0, Math.PI * 2.0);
+      cr.set_source_rgba (0.12, 0.13, 0.16, 0.88 * fade);
+      cr.fill_preserve ();
+      cr.set_line_width (1.2);
+      cr.set_source_rgba (1.0, 1.0, 1.0, 0.35 * fade);
+      cr.stroke ();
+
+      cr.set_source_rgba (1.0, 1.0, 1.0, 0.95 * fade);
+      cr.set_line_width (double.max (1.4, pill_r * 0.22));
+      draw_directional_chevron (cr, bx, by, pill_r * 0.42, dx, dy);
+      cr.restore ();
+    }
+
     public void update_local_cursor (int x, int y) {
       Gdk.Point new_cursor = { x, y };
       if (local_cursor == new_cursor)
@@ -1102,6 +1363,14 @@ namespace Plank {
 
       if (frame_time - last_hovered_changed <= DOCK_ZOOM_DURATION * 1000)
         return true;
+
+      if (controller.prefs.StackMode && last_stack_toggle > 0LL) {
+        var stack_target = controller.StackExpanded ? 1.0 : 0.0;
+        if (Math.fabs (stack_linear_progress - stack_target) > 0.0001
+            || frame_time - last_stack_toggle <= controller.position_manager.StackAnimationSpeed * 1000LL)
+          return true;
+        stack_item_start_progress = null;
+      }
 
       if (theme.FadeOpacity == 1.0) {
         if (frame_time - last_hide <= theme.HideTime * 1000)

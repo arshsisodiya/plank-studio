@@ -148,6 +148,12 @@ namespace PlankTests {
     Test.add_func ("/Services/DockCollision/clamped", dock_collision_clamped);
     Test.add_func ("/Services/DockCollision/no_overlap", dock_collision_no_overlap);
     Test.add_func ("/Services/DockCollision/too_long", dock_collision_too_long);
+    Test.add_func ("/Services/StackLayout/direction_vectors", stack_layout_direction_vectors);
+    Test.add_func ("/Services/StackLayout/collapsed_state", stack_layout_collapsed_state);
+    Test.add_func ("/Services/StackLayout/expand_all_directions", stack_layout_expand_all_directions);
+    Test.add_func ("/Services/StackLayout/edge_clamping_and_autofit", stack_layout_edge_clamping_and_autofit);
+    Test.add_func ("/Services/StackLayout/staggered_animation", stack_layout_staggered_animation);
+    Test.add_func ("/Services/StackPrefs/bounds_and_independence", stack_prefs_bounds_and_independence);
   }
 
   void matcher_desktop_file_for_window_class () {
@@ -2514,5 +2520,194 @@ namespace PlankTests {
 
     Gdk.Rectangle[] others = { collision_rect (0, 274, 60, 532) };
     assert (collision_offset (base_region, false, monitor, others, 8) == -274);
+  }
+
+  void stack_layout_direction_vectors () {
+    int dx, dy;
+    stack_direction_vector ((int) StackDirection.UP, out dx, out dy);
+    assert (dx == 0 && dy == -1);
+    stack_direction_vector ((int) StackDirection.DOWN, out dx, out dy);
+    assert (dx == 0 && dy == 1);
+    stack_direction_vector ((int) StackDirection.LEFT, out dx, out dy);
+    assert (dx == -1 && dy == 0);
+    stack_direction_vector ((int) StackDirection.RIGHT, out dx, out dy);
+    assert (dx == 1 && dy == 0);
+  }
+
+  void stack_layout_collapsed_state () {
+    Gdk.Rectangle bounds = { 0, 0, 1920, 1080 };
+    Gdk.Rectangle collapsed_bg = { 926, 1014, 68, 66 };
+    double[] prog = { 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+    var layout = compute_stack_frame_layout (
+      960.0, 1046.0, (int) StackDirection.UP, 48, 10, 10, 10,
+      bounds, collapsed_bg, prog, 0.0
+    );
+
+    assert (layout.anchor_opacity == 0.0);
+    assert (layout.background_rect == collapsed_bg);
+    assert (layout.cursor_rect.x <= collapsed_bg.x && layout.cursor_rect.y <= collapsed_bg.y);
+    assert (layout.cursor_rect.width >= collapsed_bg.width && layout.cursor_rect.height >= collapsed_bg.height);
+    assert (layout.cursor_rect.width <= 96 && layout.cursor_rect.height <= 96);
+    assert (layout.items.length == 5);
+    // Front 3 items visible in layered stack; 4th+ hidden while collapsed.
+    assert (layout.items[0].opacity == 1.0);
+    assert (layout.items[1].opacity > 0.5 && layout.items[1].opacity < 1.0);
+    assert (layout.items[2].opacity > 0.3 && layout.items[2].opacity < layout.items[1].opacity);
+    assert (layout.items[3].opacity == 0.0);
+    assert (layout.items[4].opacity == 0.0);
+    assert (layout.items[1].y < layout.items[0].y);
+
+    // Shelf-only (Default-like) and background-free (Transparent) collapsed themes still expose full hitbox.
+    Gdk.Rectangle shelf_bg = { 926, 1070, 68, 10 };
+    var shelf_layout = compute_stack_frame_layout (
+      960.0, 1046.0, (int) StackDirection.UP, 48, 10, 10, 10,
+      bounds, shelf_bg, prog, 0.0
+    );
+    assert (shelf_layout.background_rect == shelf_bg);
+    assert (shelf_layout.cursor_rect.height >= 52);
+
+    Gdk.Rectangle empty_bg = { 0, 0, 0, 0 };
+    var transp_layout = compute_stack_frame_layout (
+      960.0, 1046.0, (int) StackDirection.UP, 48, 10, 10, 10,
+      bounds, empty_bg, prog, 0.0
+    );
+    assert (transp_layout.background_rect.width == 0 && transp_layout.background_rect.height == 0);
+    assert (transp_layout.cursor_rect.width >= 52 && transp_layout.cursor_rect.height >= 52);
+  }
+
+  void stack_layout_expand_all_directions () {
+    Gdk.Rectangle bounds = { 0, 0, 1920, 1080 };
+    Gdk.Rectangle collapsed_bg = { 926, 506, 68, 68 };
+    double[] prog = { 1.0, 1.0, 1.0, 1.0 };
+
+    // Upwards
+    var up = compute_stack_frame_layout (960.0, 540.0, (int) StackDirection.UP, 48, 12, 10, 10,
+                                         bounds, collapsed_bg, prog, 1.0);
+    for (var i = 0; i < 4; i++) {
+      assert (Math.fabs (up.items[i].x - 960.0) < 0.01);
+      assert (up.items[i].y < up.anchor_y);
+      assert (up.items[i].opacity == 1.0);
+      if (i > 0)
+        assert (Math.fabs ((up.items[i - 1].y - up.items[i].y) - 60.0) < 0.01);
+    }
+
+    // Downwards
+    var down = compute_stack_frame_layout (960.0, 540.0, (int) StackDirection.DOWN, 48, 12, 10, 10,
+                                           bounds, collapsed_bg, prog, 1.0);
+    for (var i = 0; i < 4; i++) {
+      assert (down.items[i].y > down.anchor_y);
+      if (i > 0)
+        assert (Math.fabs ((down.items[i].y - down.items[i - 1].y) - 60.0) < 0.01);
+    }
+
+    // Left
+    var left = compute_stack_frame_layout (960.0, 540.0, (int) StackDirection.LEFT, 48, 12, 10, 10,
+                                           bounds, collapsed_bg, prog, 1.0);
+    for (var i = 0; i < 4; i++) {
+      assert (left.items[i].x < left.anchor_x);
+      if (i > 0)
+        assert (Math.fabs ((left.items[i - 1].x - left.items[i].x) - 60.0) < 0.01);
+    }
+
+    // Right
+    var right = compute_stack_frame_layout (960.0, 540.0, (int) StackDirection.RIGHT, 48, 12, 10, 10,
+                                            bounds, collapsed_bg, prog, 1.0);
+    for (var i = 0; i < 4; i++) {
+      assert (right.items[i].x > right.anchor_x);
+      if (i > 0)
+        assert (Math.fabs ((right.items[i].x - right.items[i - 1].x) - 60.0) < 0.01);
+    }
+  }
+
+  void stack_layout_edge_clamping_and_autofit () {
+    // Low-resolution 800x600 screen with 12 items expanding upwards from bottom edge
+    Gdk.Rectangle small_bounds = { 0, 0, 800, 600 };
+    Gdk.Rectangle collapsed_bg = { 366, 534, 68, 66 };
+    var prog = new double[12];
+    for (var i = 0; i < 12; i++)
+      prog[i] = 1.0;
+
+    var fitted = compute_stack_frame_layout (
+      400.0, 566.0, (int) StackDirection.UP, 48, 16, 10, 10,
+      small_bounds, collapsed_bg, prog, 1.0
+    );
+
+    // Must fit within 600px vertically with zero clipping
+    assert (fitted.background_rect.y >= 0);
+    assert (fitted.background_rect.y + fitted.background_rect.height <= 600);
+    for (var i = 0; i < 12; i++) {
+      var half = fitted.items[i].icon_size / 2.0;
+      assert (fitted.items[i].y - half >= 0);
+      assert (fitted.items[i].y + half <= 600);
+    }
+
+    // Right-edge dock trying to expand LEFT from x=20 must stay >= 0 inside screen
+    Gdk.Rectangle left_edge_bg = { 0, 400, 68, 68 };
+    double[] p4 = { 1.0, 1.0, 1.0, 1.0 };
+    var clamped = compute_stack_frame_layout (
+      34.0, 434.0, (int) StackDirection.LEFT, 48, 10, 10, 10,
+      small_bounds, left_edge_bg, p4, 1.0
+    );
+    assert (clamped.background_rect.x >= 0);
+    assert (clamped.cursor_rect.x >= 0);
+    assert (clamped.cursor_rect.x + clamped.cursor_rect.width <= 800);
+  }
+
+  void stack_layout_staggered_animation () {
+    // Verify smooth bezier curve endpoints and monotonic glide
+    assert (stack_cubic_bezier (0.0, 0.16, 1.0, 0.30, 1.0) == 0.0);
+    assert (stack_cubic_bezier (1.0, 0.16, 1.0, 0.30, 1.0) == 1.0);
+    var mid_b = stack_cubic_bezier (0.5, 0.16, 1.0, 0.30, 1.0);
+    assert (mid_b > 0.75 && mid_b < 1.0);
+
+    // At halfway through an expand, inner item 0 must lead outer item 4
+    var p0 = stack_staggered_progress (true, 0.0, 1000LL, 1000LL + 140000LL, 340, 0, 5);
+    var p4 = stack_staggered_progress (true, 0.0, 1000LL, 1000LL + 140000LL, 340, 4, 5);
+    assert (p0 > p4);
+    assert (p0 > 0.0 && p0 <= 1.0);
+    assert (p4 >= 0.0 && p4 < 1.0);
+
+    // Complete expand reaches 1.0 for all
+    var end0 = stack_staggered_progress (true, 0.0, 1000LL, 1000LL + 360000LL, 340, 0, 5);
+    var end4 = stack_staggered_progress (true, 0.0, 1000LL, 1000LL + 360000LL, 340, 4, 5);
+    assert (end0 == 1.0 && end4 == 1.0);
+
+    // Mid-collapse reversal starts at p0 without jumping
+    var mid_rev = stack_staggered_progress (false, 0.62, 5000LL, 5000LL, 340, 2, 5);
+    assert (Math.fabs (mid_rev - 0.62) < 0.0001);
+
+    // On collapse, outer item 4 starts receding ahead of inner item 0
+    var c0 = stack_staggered_progress (false, 1.0, 5000LL, 5000LL + 140000LL, 340, 0, 5);
+    var c4 = stack_staggered_progress (false, 1.0, 5000LL, 5000LL + 140000LL, 340, 4, 5);
+    assert (c4 < c0);
+  }
+
+  void stack_prefs_bounds_and_independence () {
+    var prefs1 = new DockPreferences ("stack_test_1");
+    var prefs2 = new DockPreferences ("stack_test_2");
+
+    assert (!prefs1.StackMode);
+    assert (!prefs2.StackMode);
+    assert (prefs1.StackDirection == StackDirection.UP);
+    assert (prefs1.StackAnimationSpeed == 340);
+    assert (prefs1.StackItemSpacing == 10);
+
+    prefs1.StackMode = true;
+    prefs1.StackDirection = StackDirection.RIGHT;
+    prefs1.StackAnimationSpeed = DockPreferences.MIN_STACK_ANIMATION_SPEED;
+    prefs1.StackItemSpacing = DockPreferences.MAX_STACK_ITEM_SPACING;
+
+    assert (prefs1.StackMode == true);
+    assert (!prefs2.StackMode);
+    assert (prefs1.StackDirection == StackDirection.RIGHT);
+    assert (prefs2.StackDirection == StackDirection.UP);
+    assert (prefs1.StackAnimationSpeed == DockPreferences.MIN_STACK_ANIMATION_SPEED);
+    assert (prefs1.StackItemSpacing == DockPreferences.MAX_STACK_ITEM_SPACING);
+
+    prefs1.StackAnimationSpeed = DockPreferences.MAX_STACK_ANIMATION_SPEED;
+    prefs1.StackItemSpacing = DockPreferences.MIN_STACK_ITEM_SPACING;
+    assert (prefs1.StackAnimationSpeed == DockPreferences.MAX_STACK_ANIMATION_SPEED);
+    assert (prefs1.StackItemSpacing == DockPreferences.MIN_STACK_ITEM_SPACING);
   }
 }

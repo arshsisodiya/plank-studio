@@ -415,6 +415,8 @@ namespace Plank {
       unowned DockWindow window = controller.window;
       unowned HideManager hide_manager = controller.hide_manager;
       controller.renderer.update_local_cursor (x, y);
+      if (controller.prefs.StackMode && !controller.StackExpanded)
+        controller.set_stack_expanded (true);
       hide_manager.update_hovered_with_coords (x, y);
       window.update_hovered (x, y);
 
@@ -675,6 +677,8 @@ namespace Plank {
       last_drag_time = time_;
 
       controller.renderer.update_local_cursor (x, y);
+      if (controller.prefs.StackMode && !controller.StackExpanded)
+        controller.set_stack_expanded (true);
       hide_manager.update_hovered_with_coords (x, y);
       window.update_hovered (x, y);
 

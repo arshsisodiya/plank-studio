@@ -84,6 +84,10 @@ enum PlankPopupButton 001 PLANK_POPUP_BUTTON_NONE = 1 << 0
 enum PlankPopupButton 002 PLANK_POPUP_BUTTON_LEFT = 1 << 1
 enum PlankPopupButton 003 PLANK_POPUP_BUTTON_MIDDLE = 1 << 2
 enum PlankPopupButton 004 PLANK_POPUP_BUTTON_RIGHT = 1 << 3
+enum PlankStackDirection 001 PLANK_STACK_DIRECTION_UP
+enum PlankStackDirection 002 PLANK_STACK_DIRECTION_DOWN
+enum PlankStackDirection 003 PLANK_STACK_DIRECTION_LEFT
+enum PlankStackDirection 004 PLANK_STACK_DIRECTION_RIGHT
 enum PlankSurfaceCacheFlags 001 PLANK_SURFACE_CACHE_FLAGS_NONE = 0
 enum PlankSurfaceCacheFlags 002 PLANK_SURFACE_CACHE_FLAGS_ALLOW_DOWNSCALE = 1 << 0
 enum PlankSurfaceCacheFlags 003 PLANK_SURFACE_CACHE_FLAGS_ALLOW_UPSCALE = 1 << 1
@@ -264,6 +268,7 @@ function plank_dock_container_update_visible_elements void plank_dock_container_
 function plank_dock_controller_add_default_provider void plank_dock_controller_add_default_provider (PlankDockController* self)
 function plank_dock_controller_construct PlankDockController* plank_dock_controller_construct (GType object_type, const gchar* dock_name, GFile* config_folder)
 function plank_dock_controller_get_Items GeeArrayList* plank_dock_controller_get_Items (PlankDockController* self)
+function plank_dock_controller_get_StackExpanded gboolean plank_dock_controller_get_StackExpanded (PlankDockController* self)
 function plank_dock_controller_get_VisibleItems GeeArrayList* plank_dock_controller_get_VisibleItems (PlankDockController* self)
 function plank_dock_controller_get_config_folder GFile* plank_dock_controller_get_config_folder (PlankDockController* self)
 function plank_dock_controller_get_default_provider PlankDockItemProvider* plank_dock_controller_get_default_provider (PlankDockController* self)
@@ -284,8 +289,10 @@ function plank_dock_controller_set_hide_manager void plank_dock_controller_set_h
 function plank_dock_controller_set_hover void plank_dock_controller_set_hover (PlankDockController* self, PlankHoverWindow* value)
 function plank_dock_controller_set_position_manager void plank_dock_controller_set_position_manager (PlankDockController* self, PlankPositionManager* value)
 function plank_dock_controller_set_renderer void plank_dock_controller_set_renderer (PlankDockController* self, PlankDockRenderer* value)
+function plank_dock_controller_set_stack_expanded void plank_dock_controller_set_stack_expanded (PlankDockController* self, gboolean expanded)
 function plank_dock_controller_set_window void plank_dock_controller_set_window (PlankDockController* self, PlankDockWindow* value)
 function plank_dock_controller_shutdown void plank_dock_controller_shutdown (PlankDockController* self)
+function plank_dock_controller_toggle_stack void plank_dock_controller_toggle_stack (PlankDockController* self)
 function plank_dock_element_accept_drop gboolean plank_dock_element_accept_drop (PlankDockElement* self, GeeArrayList* uris)
 function plank_dock_element_as_uri gchar* plank_dock_element_as_uri (PlankDockElement* self)
 function plank_dock_element_can_accept_drop gboolean plank_dock_element_can_accept_drop (PlankDockElement* self, GeeArrayList* uris)
@@ -465,6 +472,10 @@ function plank_dock_preferences_get_PreviewSize gint plank_dock_preferences_get_
 function plank_dock_preferences_get_PreviewsEnabled gboolean plank_dock_preferences_get_PreviewsEnabled (PlankDockPreferences* self)
 function plank_dock_preferences_get_ShowDockItem gboolean plank_dock_preferences_get_ShowDockItem (PlankDockPreferences* self)
 function plank_dock_preferences_get_ShowNewApplications gboolean plank_dock_preferences_get_ShowNewApplications (PlankDockPreferences* self)
+function plank_dock_preferences_get_StackAnimationSpeed gint plank_dock_preferences_get_StackAnimationSpeed (PlankDockPreferences* self)
+function plank_dock_preferences_get_StackDirection PlankStackDirection plank_dock_preferences_get_StackDirection (PlankDockPreferences* self)
+function plank_dock_preferences_get_StackItemSpacing gint plank_dock_preferences_get_StackItemSpacing (PlankDockPreferences* self)
+function plank_dock_preferences_get_StackMode gboolean plank_dock_preferences_get_StackMode (PlankDockPreferences* self)
 function plank_dock_preferences_get_Theme const gchar* plank_dock_preferences_get_Theme (PlankDockPreferences* self)
 function plank_dock_preferences_get_TooltipsEnabled gboolean plank_dock_preferences_get_TooltipsEnabled (PlankDockPreferences* self)
 function plank_dock_preferences_get_UnhideDelay guint plank_dock_preferences_get_UnhideDelay (PlankDockPreferences* self)
@@ -501,6 +512,10 @@ function plank_dock_preferences_set_PreviewSize void plank_dock_preferences_set_
 function plank_dock_preferences_set_PreviewsEnabled void plank_dock_preferences_set_PreviewsEnabled (PlankDockPreferences* self, gboolean value)
 function plank_dock_preferences_set_ShowDockItem void plank_dock_preferences_set_ShowDockItem (PlankDockPreferences* self, gboolean value)
 function plank_dock_preferences_set_ShowNewApplications void plank_dock_preferences_set_ShowNewApplications (PlankDockPreferences* self, gboolean value)
+function plank_dock_preferences_set_StackAnimationSpeed void plank_dock_preferences_set_StackAnimationSpeed (PlankDockPreferences* self, gint value)
+function plank_dock_preferences_set_StackDirection void plank_dock_preferences_set_StackDirection (PlankDockPreferences* self, PlankStackDirection value)
+function plank_dock_preferences_set_StackItemSpacing void plank_dock_preferences_set_StackItemSpacing (PlankDockPreferences* self, gint value)
+function plank_dock_preferences_set_StackMode void plank_dock_preferences_set_StackMode (PlankDockPreferences* self, gboolean value)
 function plank_dock_preferences_set_Theme void plank_dock_preferences_set_Theme (PlankDockPreferences* self, const gchar* value)
 function plank_dock_preferences_set_TooltipsEnabled void plank_dock_preferences_set_TooltipsEnabled (PlankDockPreferences* self, gboolean value)
 function plank_dock_preferences_set_UnhideDelay void plank_dock_preferences_set_UnhideDelay (PlankDockPreferences* self, guint value)
@@ -510,6 +525,7 @@ function plank_dock_renderer_animate_items void plank_dock_renderer_animate_item
 function plank_dock_renderer_construct PlankDockRenderer* plank_dock_renderer_construct (GType object_type, PlankDockController* controller, GtkWindow* window)
 function plank_dock_renderer_easing_bounce gdouble plank_dock_renderer_easing_bounce (gdouble t, gdouble d, gdouble n)
 function plank_dock_renderer_get_hide_progress gdouble plank_dock_renderer_get_hide_progress (PlankDockRenderer* self)
+function plank_dock_renderer_get_stack_linear_progress gdouble plank_dock_renderer_get_stack_linear_progress (PlankDockRenderer* self)
 function plank_dock_renderer_get_theme PlankDockTheme* plank_dock_renderer_get_theme (PlankDockRenderer* self)
 function plank_dock_renderer_get_type GType plank_dock_renderer_get_type (void)
 function plank_dock_renderer_get_zoom_in_progress gdouble plank_dock_renderer_get_zoom_in_progress (PlankDockRenderer* self)
@@ -790,6 +806,10 @@ function plank_position_manager_get_MaxItemCount gint plank_position_manager_get
 function plank_position_manager_get_Offset gint plank_position_manager_get_Offset (PlankPositionManager* self)
 function plank_position_manager_get_Position GtkPositionType plank_position_manager_get_Position (PlankPositionManager* self)
 function plank_position_manager_get_SeparatorPadding gint plank_position_manager_get_SeparatorPadding (PlankPositionManager* self)
+function plank_position_manager_get_StackAnimationSpeed gint plank_position_manager_get_StackAnimationSpeed (PlankPositionManager* self)
+function plank_position_manager_get_StackDirection PlankStackDirection plank_position_manager_get_StackDirection (PlankPositionManager* self)
+function plank_position_manager_get_StackItemSpacing gint plank_position_manager_get_StackItemSpacing (PlankPositionManager* self)
+function plank_position_manager_get_StackMode gboolean plank_position_manager_get_StackMode (PlankPositionManager* self)
 function plank_position_manager_get_TopPadding gint plank_position_manager_get_TopPadding (PlankPositionManager* self)
 function plank_position_manager_get_UrgentBounceHeight gint plank_position_manager_get_UrgentBounceHeight (PlankPositionManager* self)
 function plank_position_manager_get_ZoomIconSize gint plank_position_manager_get_ZoomIconSize (PlankPositionManager* self)
@@ -805,12 +825,15 @@ function plank_position_manager_get_draw_value_for_item PlankDockItemDrawValue* 
 function plank_position_manager_get_hover_position void plank_position_manager_get_hover_position (PlankPositionManager* self, PlankDockItem* hovered, gint* x, gint* y)
 function plank_position_manager_get_hover_position_at void plank_position_manager_get_hover_position_at (PlankPositionManager* self, gint* x, gint* y)
 function plank_position_manager_get_hover_region_for_element void plank_position_manager_get_hover_region_for_element (PlankPositionManager* self, PlankDockElement* element, GdkRectangle* result)
+function plank_position_manager_get_hover_tooltip_position GtkPositionType plank_position_manager_get_hover_tooltip_position (PlankPositionManager* self)
 function plank_position_manager_get_icon_geometry void plank_position_manager_get_icon_geometry (PlankPositionManager* self, PlankApplicationDockItem* item, gboolean for_hidden, GdkRectangle* result)
 function plank_position_manager_get_menu_position void plank_position_manager_get_menu_position (PlankPositionManager* self, PlankDockItem* hovered, GtkRequisition* requisition, gint* x, gint* y)
 function plank_position_manager_get_monitor_geometry void plank_position_manager_get_monitor_geometry (PlankPositionManager* self, GdkRectangle* result)
 function plank_position_manager_get_monitor_plug_names gchar** plank_position_manager_get_monitor_plug_names (GdkScreen* screen, gint* result_length1)
 function plank_position_manager_get_nearest_item_at PlankDockItem* plank_position_manager_get_nearest_item_at (PlankPositionManager* self, gint x, gint y, PlankDockContainer* container)
 function plank_position_manager_get_screen_is_composited gboolean plank_position_manager_get_screen_is_composited (PlankPositionManager* self)
+function plank_position_manager_get_stack_handle_region void plank_position_manager_get_stack_handle_region (PlankPositionManager* self, GdkRectangle* result)
+function plank_position_manager_get_stack_toggle_hover_position void plank_position_manager_get_stack_toggle_hover_position (PlankPositionManager* self, gint* x, gint* y)
 function plank_position_manager_get_static_dock_region void plank_position_manager_get_static_dock_region (PlankPositionManager* self, GdkRectangle* result)
 function plank_position_manager_get_struts void plank_position_manager_get_struts (PlankPositionManager* self, gulong** struts, gint* struts_length1)
 function plank_position_manager_get_type GType plank_position_manager_get_type (void)
@@ -819,6 +842,7 @@ function plank_position_manager_initialize void plank_position_manager_initializ
 function plank_position_manager_is_horizontal_dock gboolean plank_position_manager_is_horizontal_dock (PlankPositionManager* self)
 function plank_position_manager_move_to_active_monitor void plank_position_manager_move_to_active_monitor (PlankPositionManager* self)
 function plank_position_manager_new PlankPositionManager* plank_position_manager_new (PlankDockController* controller)
+function plank_position_manager_point_in_stack_toggle gboolean plank_position_manager_point_in_stack_toggle (PlankPositionManager* self, gint x, gint y)
 function plank_position_manager_resolve_collision_offset gint plank_position_manager_resolve_collision_offset (PlankPositionManager* self, GeeList* placed, gint gap)
 function plank_position_manager_set_collision_offset void plank_position_manager_set_collision_offset (PlankPositionManager* self, gint offset)
 function plank_position_manager_update void plank_position_manager_update (PlankPositionManager* self, PlankDockTheme* theme)
@@ -865,6 +889,7 @@ function plank_settings_get_settings GSettings* plank_settings_get_settings (Pla
 function plank_settings_get_type GType plank_settings_get_type (void)
 function plank_settings_reset_all void plank_settings_reset_all (PlankSettings* self)
 function plank_settings_verify void plank_settings_verify (PlankSettings* self, const gchar* name)
+function plank_stack_direction_get_type GType plank_stack_direction_get_type (void)
 function plank_string_split_combine gchar** plank_string_split_combine (const gchar* s, const gchar* delimiter, gint* result_length1)
 function plank_surface_average_color void plank_surface_average_color (PlankSurface* self, PlankColor* result)
 function plank_surface_cache_clear void plank_surface_cache_clear (PlankSurfaceCache* self)
@@ -1133,6 +1158,13 @@ struct _PlankPoofWindow 002 PlankPoofWindowPrivate * priv
 struct _PlankPoofWindowClass 001 PlankCompositedWindowClass parent_class
 struct _PlankPositionManager 001 GObject parent_instance
 struct _PlankPositionManager 002 PlankPositionManagerPrivate * priv
+struct _PlankPositionManager 003 GdkRectangle stack_cursor_rect
+struct _PlankPositionManager 004 GdkRectangle stack_handle_rect
+struct _PlankPositionManager 005 gdouble stack_handle_x
+struct _PlankPositionManager 006 gdouble stack_handle_y
+struct _PlankPositionManager 007 gdouble stack_handle_size
+struct _PlankPositionManager 008 gdouble stack_handle_opacity
+struct _PlankPositionManager 009 gdouble stack_fitted_icon_size
 struct _PlankPositionManagerClass 001 GObjectClass parent_class
 struct _PlankPreferences 001 GObject parent_instance
 struct _PlankPreferences 002 PlankPreferencesPrivate * priv

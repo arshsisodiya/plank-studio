@@ -84,4 +84,26 @@ namespace Plank {
      */
     SOLID
   }
+
+  /**
+   * The direction in which a stackable dock expands its items.
+   */
+  public enum StackDirection {
+    /**
+     * Expand items vertically upward from the stack.
+     */
+    UP,
+    /**
+     * Expand items vertically downward from the stack.
+     */
+    DOWN,
+    /**
+     * Expand items horizontally to the left from the stack.
+     */
+    LEFT,
+    /**
+     * Expand items horizontally to the right from the stack.
+     */
+    RIGHT
+  }
 }

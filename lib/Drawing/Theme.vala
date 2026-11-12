@@ -184,10 +184,15 @@ namespace Plank
 		 */
 		public void draw_background (Surface surface)
 		{
-			unowned Cairo.Context cr = surface.Context;
+			draw_background_on_context (surface.Context, surface.Width, surface.Height);
+		}
+
+		/**
+		 * Draws the theme background directly onto the given Cairo context.
+		 */
+		internal void draw_background_on_context (Cairo.Context cr, int width, int height)
+		{
 			Cairo.Pattern gradient;
-			var width = surface.Width;
-			var height = surface.Height;
 			var bottom_offset = BottomRoundness > 0 ? LineWidth : -LineWidth;
 			
 			cr.save ();

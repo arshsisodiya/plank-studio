@@ -361,6 +361,9 @@ namespace Plank {
     // Whether the hide mode itself keeps the dock shown, whatever the
     // pointer does
     bool hide_mode_shows () {
+      if (controller.prefs.StackMode && controller.StackExpanded)
+        return true;
+
       switch (controller.prefs.HideMode) {
       default:
       case HideType.NONE:
@@ -564,6 +567,9 @@ namespace Plank {
       if (Hidden)
         pressure_counter.leave ();
 #endif
+
+      if (Hidden && controller.StackExpanded)
+        controller.set_stack_expanded (false);
     }
 
     // Pressure reveal, when the barriers it needs work, reveals a dock by
@@ -968,7 +974,44 @@ namespace Plank {
       cancel_pending_reveal ();
     }
 
+    internal void stack_state_changed () {
+      update_hovered ();
+      update_hidden ();
+    }
+
+    void handle_global_click_collapse () {
+      int px, py;
+      get_pointer_position (out px, out py);
+
+      unowned PositionManager pm = controller.position_manager;
+      var win_rect = pm.get_dock_window_region ();
+      var cursor_rect = pm.get_cursor_region ();
+      var gx = win_rect.x + cursor_rect.x;
+      var gy = win_rect.y + cursor_rect.y;
+      var inside_dock = (px >= gx && px < gx + cursor_rect.width
+                         && py >= gy && py < gy + cursor_rect.height);
+
+      if (!inside_dock && !controller.window.point_in_menu (px, py)) {
+        Gdk.threads_add_idle (() => {
+          controller.set_stack_expanded (false);
+          return false;
+        });
+      }
+    }
+
 #if HAVE_BARRIERS
+    void select_root_xinput_events (X.Display display, bool include_barriers) {
+      var root_xwindow = display.default_root_window ();
+      uchar[] mask_bits = new uchar[XInput.mask_length (XInput.EventType.LASTEVENT)];
+      XInput.EventMask mask = { XInput.ALL_MASTER_DEVICES, (int) (sizeof (uchar) * mask_bits.length), (owned) mask_bits };
+      XInput.set_mask (mask.mask, XInput.EventType.RAW_BUTTON_PRESS);
+      XInput.set_mask (mask.mask, XInput.EventType.RAW_BUTTON_RELEASE);
+      if (include_barriers) {
+        XInput.set_mask (mask.mask, XInput.EventType.BARRIER_HIT);
+        XInput.set_mask (mask.mask, XInput.EventType.BARRIER_LEAVE);
+      }
+      XInput.select_events (display, root_xwindow, &mask, 1);
+    }
     void initialize_barriers_support () {
       unowned Gdk.X11.Display? gdk_display = (controller.window.get_display () as Gdk.X11.Display);
       if (gdk_display == null) {
@@ -991,6 +1034,7 @@ namespace Plank {
           message ("Barriers enabled (XInput %i.%i support)\n", major, minor);
           barriers_supported = true;
           gdk_window_add_filter (null, (Gdk.FilterFunc) xevent_filter);
+          select_root_xinput_events (display, false);
 
           // A drag-and-drop starts by taking the XdndSelection. GTK lets it
           // go as the drag ends, but an app may keep it once its drag is
@@ -1025,6 +1069,16 @@ namespace Plank {
       X.Event* xevent = (X.Event*) gdk_xevent;
       X.GenericEventCookie* xcookie = &xevent.xcookie;
       unowned X.Display display = xcookie.display;
+
+      if (xcookie.extension == opcode && xcookie.evtype == XInput.EventType.RAW_BUTTON_PRESS) {
+        XInput.RawEvent* raw_event = (XInput.RawEvent*) (xcookie.data);
+        if (raw_event != null && (raw_event.detail < 4 || raw_event.detail > 7)
+            && controller.prefs.StackMode && controller.StackExpanded) {
+          handle_global_click_collapse ();
+        }
+
+        return Gdk.FilterReturn.CONTINUE;
+      }
 
       // A drag ends as its button is released, which X reports even while
       // the drag holds the pointer grabbed. Every dock's filter needs to see
@@ -1170,13 +1224,8 @@ namespace Plank {
       if (barrier_area.width <= 0 && barrier_area.height <= 0)
         return;
 
-      // Enable barrier events, and the button releases that end a drag
-      uchar[] mask_bits = new uchar[XInput.mask_length (XInput.EventType.LASTEVENT)];
-      XInput.EventMask mask = { XInput.ALL_MASTER_DEVICES, (int) (sizeof (uchar) * mask_bits.length), (owned) mask_bits };
-      XInput.set_mask (mask.mask, XInput.EventType.BARRIER_HIT);
-      XInput.set_mask (mask.mask, XInput.EventType.BARRIER_LEAVE);
-      XInput.set_mask (mask.mask, XInput.EventType.RAW_BUTTON_RELEASE);
-      XInput.select_events (display, root_xwindow, &mask, 1);
+      // Enable barrier events, global clicks (for stack collapse), and button releases that end a drag
+      select_root_xinput_events (display, true);
 
       debug ("Barrier: %i,%i - %i,%i\n", barrier_area.x, barrier_area.y, barrier_area.x + barrier_area.width, barrier_area.y + barrier_area.height);
 
