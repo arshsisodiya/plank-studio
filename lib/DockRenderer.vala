@@ -83,8 +83,15 @@ namespace Plank {
     int64 last_stack_toggle = 0LL;
     double[]? stack_item_start_progress = null;
 
+    class RoundedIconEntry {
+      public Surface raw_surface;
+      public Surface? rounded_surface;
+      public int radius_percent;
+    }
+
     Gee.ArrayList<unowned DockItem> current_items;
     Gee.HashSet<DockItem> transient_items;
+    Gee.HashMap<DockItem, Gee.HashMap<int, RoundedIconEntry>> rounded_icon_cache;
 #if BENCHMARK
     Gee.ArrayList<string> benchmark;
 #endif
@@ -103,6 +110,7 @@ namespace Plank {
     {
       transient_items = new Gee.HashSet<DockItem> ();
       current_items = new Gee.ArrayList<unowned DockItem> ();
+      rounded_icon_cache = new Gee.HashMap<DockItem, Gee.HashMap<int, RoundedIconEntry>> ();
 #if BENCHMARK
       benchmark = new Gee.ArrayList<string> ();
 #endif
@@ -149,6 +157,11 @@ namespace Plank {
         break;
       case "Theme":
         load_theme ();
+        break;
+      case "RoundSquareIcons":
+      case "IconCornerRadius":
+        rounded_icon_cache.clear ();
+        reset_item_buffers ();
         break;
       default:
         // Nothing important for us changed
@@ -219,6 +232,7 @@ namespace Plank {
       scratch_surface_size = 0;
 
       background_buffer = null;
+      rounded_icon_cache.clear ();
       indicator_buffer[0] = null;
       indicator_buffer[1] = null;
       urgent_indicator_buffer[0] = null;
@@ -349,6 +363,14 @@ namespace Plank {
       // Only sort if transient items were added - new_items is already in position order
       if (transient_items.size > 0)
         current_items.sort ((CompareDataFunc) compare_dock_item_position);
+
+      if (rounded_icon_cache.size > 0) {
+        var cache_it = rounded_icon_cache.map_iterator ();
+        while (cache_it.next ()) {
+          if (!current_items.contains (cache_it.get_key ()))
+            cache_it.unset ();
+        }
+      }
 
       // Calculate positions for given ordered list of items
       position_manager.update_draw_values (current_items,
@@ -790,8 +812,62 @@ namespace Plank {
       }
     }
 
+    bool should_round_item (DockItem item) {
+      return controller.prefs.RoundSquareIcons
+             && controller.prefs.IconCornerRadius > 0
+             && !(item is DockletItem)
+             && !item.is_separator ();
+    }
+
+    Surface? apply_icon_corner_rounding (Surface raw, int radius_percent) {
+      Cairo.ImageSurface img;
+      IconSquareBounds bounds;
+      double radius;
+      if (!prepare_rounded_square_icon (raw.Internal, raw.Width, raw.Height,
+          radius_percent, out img, out bounds, out radius))
+        return null;
+
+      double sx = 1.0, sy = 1.0;
+      raw.Internal.get_device_scale (out sx, out sy);
+
+      var rounded = new Surface.with_surface (raw.Width, raw.Height, raw);
+      rounded.Internal.set_device_scale (1.0, 1.0);
+      rounded.clear ();
+      clip_and_paint_rounded_icon (rounded.Context, img, bounds, radius);
+
+      if (sx != 1.0 || sy != 1.0)
+        rounded.Internal.set_device_scale (sx, sy);
+
+      return rounded;
+    }
+
+    Surface get_rounded_item_surface (DockItem item, int icon_size, Surface raw_surface) {
+      if (!should_round_item (item))
+        return raw_surface;
+
+      int radius_percent = controller.prefs.IconCornerRadius;
+      var size_map = rounded_icon_cache.get (item);
+      if (size_map != null) {
+        var entry = size_map.get (icon_size);
+        if (entry != null && entry.raw_surface == raw_surface && entry.radius_percent == radius_percent)
+          return entry.rounded_surface ?? raw_surface;
+      } else {
+        size_map = new Gee.HashMap<int, RoundedIconEntry> ();
+        rounded_icon_cache.set (item, size_map);
+      }
+
+      var entry = new RoundedIconEntry () {
+        raw_surface = raw_surface,
+        rounded_surface = apply_icon_corner_rounding (raw_surface, radius_percent),
+        radius_percent = radius_percent
+      };
+      size_map.set (icon_size, entry);
+
+      return entry.rounded_surface ?? raw_surface;
+    }
+
     inline Surface get_item_surface (DockItem item, int icon_size) {
-      var private_icon_surface = item.get_surface (icon_size, icon_size, item_buffer);
+      var private_icon_surface = get_rounded_item_surface (item, icon_size, item.get_surface (icon_size, icon_size, item_buffer));
       if (!screen_is_composited)
         return private_icon_surface;
 
@@ -1046,7 +1122,7 @@ namespace Plank {
       var shadow_size = theme.IconShadowSize * scaled_icon_size * window_scale_factor;
 
       var icon_size = (int) draw_value.icon_size * window_scale_factor;
-      var icon_surface = item.get_surface (icon_size, icon_size, model);
+      var icon_surface = get_rounded_item_surface (item, icon_size, item.get_surface (icon_size, icon_size, model));
 
       Logger.verbose ("DockItem.draw_icon_with_shadow (width = %i, height = %i, shadow_size = %i)", width, height, shadow_size);
       var surface = new Surface.with_surface (width, height, model);

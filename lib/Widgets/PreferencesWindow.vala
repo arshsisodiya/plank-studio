@@ -64,6 +64,8 @@ namespace Plank {
     unowned Gtk.Scale s_stack_speed;
     [GtkChild]
     unowned Gtk.Scale s_stack_spacing;
+    [GtkChild]
+    unowned Gtk.Scale s_icon_corner_radius;
 
     [GtkChild]
     unowned Gtk.Adjustment adj_hide_delay;
@@ -87,6 +89,8 @@ namespace Plank {
     unowned Gtk.Adjustment adj_stack_speed;
     [GtkChild]
     unowned Gtk.Adjustment adj_stack_spacing;
+    [GtkChild]
+    unowned Gtk.Adjustment adj_icon_corner_radius;
 
     [GtkChild]
     unowned Gtk.Switch sw_hide;
@@ -116,6 +120,8 @@ namespace Plank {
     unowned Gtk.Switch sw_zoom_enabled;
     [GtkChild]
     unowned Gtk.Switch sw_stack_mode;
+    [GtkChild]
+    unowned Gtk.Switch sw_round_square_icons;
     [GtkChild]
     unowned Gtk.Switch sw_bring_to_workspace;
     [GtkChild]
@@ -340,6 +346,13 @@ namespace Plank {
       case "StackItemSpacing":
         adj_stack_spacing.value = prefs.StackItemSpacing;
         break;
+      case "RoundSquareIcons":
+        sw_round_square_icons.set_active (prefs.RoundSquareIcons);
+        s_icon_corner_radius.sensitive = prefs.RoundSquareIcons;
+        break;
+      case "IconCornerRadius":
+        adj_icon_corner_radius.value = prefs.IconCornerRadius;
+        break;
       case "ActiveDisplay":
         sw_active_display.set_active (prefs.ActiveDisplay);
         break;
@@ -526,6 +539,16 @@ namespace Plank {
       prefs.StackItemSpacing = (int) adj.value;
     }
 
+    void round_square_icons_toggled (GLib.Object widget, ParamSpec param) {
+      var active = ((Gtk.Switch) widget).get_active ();
+      prefs.RoundSquareIcons = active;
+      s_icon_corner_radius.sensitive = active;
+    }
+
+    void icon_corner_radius_changed (Gtk.Adjustment adj) {
+      prefs.IconCornerRadius = (int) adj.value;
+    }
+
     void monitor_changed (Gtk.ComboBox widget) {
       prefs.Monitor = ((Gtk.ComboBoxText) widget).get_active_text ();
     }
@@ -625,6 +648,8 @@ namespace Plank {
       cb_stack_direction.changed.connect (stack_direction_changed);
       adj_stack_speed.value_changed.connect (stack_speed_changed);
       adj_stack_spacing.value_changed.connect (stack_spacing_changed);
+      sw_round_square_icons.notify["active"].connect (round_square_icons_toggled);
+      adj_icon_corner_radius.value_changed.connect (icon_corner_radius_changed);
       cb_alignment.changed.connect (alignment_changed);
       cb_items_alignment.changed.connect (items_alignment_changed);
     }
@@ -668,6 +693,8 @@ namespace Plank {
       cb_stack_direction.changed.disconnect (stack_direction_changed);
       adj_stack_speed.value_changed.disconnect (stack_speed_changed);
       adj_stack_spacing.value_changed.disconnect (stack_spacing_changed);
+      sw_round_square_icons.notify["active"].disconnect (round_square_icons_toggled);
+      adj_icon_corner_radius.value_changed.disconnect (icon_corner_radius_changed);
       cb_alignment.changed.disconnect (alignment_changed);
       cb_items_alignment.changed.disconnect (items_alignment_changed);
     }
@@ -735,6 +762,9 @@ namespace Plank {
       adj_stack_speed.value = prefs.StackAnimationSpeed;
       adj_stack_spacing.value = prefs.StackItemSpacing;
       set_stack_controls_sensitive (prefs.StackMode);
+      sw_round_square_icons.set_active (prefs.RoundSquareIcons);
+      adj_icon_corner_radius.value = prefs.IconCornerRadius;
+      s_icon_corner_radius.sensitive = prefs.RoundSquareIcons;
       cb_alignment.active_id = ((int) prefs.Alignment).to_string ();
       cb_items_alignment.active_id = ((int) prefs.ItemsAlignment).to_string ();
       cb_items_alignment.sensitive = (prefs.Alignment == Gtk.Align.FILL);

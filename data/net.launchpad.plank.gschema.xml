@@ -188,6 +188,17 @@
 			<summary>Show window previews when items are hovered</summary>
 			<description>If true, hovering an application's dock item shows previews of its windows instead of a tooltip.</description>
 		</key>
+		<key name="round-square-icons" type="b">
+			<default>false</default>
+			<summary>Round sharp corners on square icons</summary>
+			<description>If true, icons whose opaque content has sharp square corners are clipped to rounded corners while leaving already-rounded or shaped icons unchanged.</description>
+		</key>
+		<key name="icon-corner-radius" type="i">
+			<range min="4" max="30"/>
+			<default>10</default>
+			<summary>Square icon corner roundness</summary>
+			<description>Corner radius applied to square icons, as a percentage of the icon content size.</description>
+		</key>
 		<key name="show-dock-item" type="b">
 			<default>false</default>
 			<summary>Show the item for the dock itself</summary>

@@ -46,6 +46,8 @@ namespace PlankTests
 		Test.add_func ("/Drawing/Theme/draw_active_glow", drawing_theme_draw_active_glow);
 		Test.add_func ("/Drawing/Theme/create_indicator", drawing_theme_create_indicator);
 		Test.add_func ("/Drawing/Theme/create_urgent_glow", drawing_theme_create_urgent_glow);
+		Test.add_func ("/Drawing/IconRounding/detection_and_clipping", drawing_icon_rounding);
+		Test.add_func ("/Drawing/IconRounding/per_dock_preferences", drawing_icon_rounding_prefs);
 	}
 
 	void drawing_color ()
@@ -536,5 +538,122 @@ namespace PlankTests
 		surface5 = docktheme.create_background (128, 512, Gtk.PositionType.LEFT, surface);
 		pixbuf5 = surface5.to_pixbuf ();
 		assert (pixbuf_equal (pixbuf2, pixbuf5.rotate_simple (Gdk.PixbufRotation.COUNTERCLOCKWISE)));
+	}
+
+	uint8 test_surface_alpha_at (Surface surface, int x, int y)
+	{
+		var img = surface_to_image_surface (surface.Internal, surface.Width, surface.Height);
+		return icon_pixel_alpha (img.get_data (), img.get_stride (), x, y);
+	}
+
+	Surface? apply_test_icon_rounding (Surface raw, int radius_percent)
+	{
+		Cairo.ImageSurface img;
+		IconSquareBounds bounds;
+		double radius;
+		if (!prepare_rounded_square_icon (raw.Internal, raw.Width, raw.Height,
+			radius_percent, out img, out bounds, out radius))
+			return null;
+
+		var rounded = new Surface.with_surface (raw.Width, raw.Height, raw);
+		rounded.clear ();
+		clip_and_paint_rounded_icon (rounded.Context, img, bounds, radius);
+		return rounded;
+	}
+
+	void drawing_icon_rounding ()
+	{
+		// 1. Full-bleed 48x48 opaque square icon
+		var full_sq = new Surface (48, 48);
+		full_sq.Context.set_source_rgba (0.2, 0.5, 0.9, 1.0);
+		full_sq.Context.rectangle (0, 0, 48, 48);
+		full_sq.Context.fill ();
+
+		var full_img = surface_to_image_surface (full_sq.Internal, 48, 48);
+		var full_bounds = detect_square_icon_bounds (full_img);
+		assert (full_bounds.is_square);
+		assert (full_bounds.x == 0 && full_bounds.y == 0);
+		assert (full_bounds.width == 48 && full_bounds.height == 48);
+
+		var rounded_subtle = apply_test_icon_rounding (full_sq, 10);
+		assert (rounded_subtle != null);
+		assert (test_surface_alpha_at (rounded_subtle, 0, 0) == 0);
+		assert (test_surface_alpha_at (rounded_subtle, 47, 0) == 0);
+		assert (test_surface_alpha_at (rounded_subtle, 0, 47) == 0);
+		assert (test_surface_alpha_at (rounded_subtle, 47, 47) == 0);
+		assert (test_surface_alpha_at (rounded_subtle, 24, 24) == 255);
+		// Subtle 10% (4.8px radius) keeps (4, 1) well inside the rounded corner
+		assert (test_surface_alpha_at (rounded_subtle, 4, 1) == 255);
+
+		var rounded_strong = apply_test_icon_rounding (full_sq, 25);
+		assert (rounded_strong != null);
+		// Strong 25% (12px radius) clips (4, 1) cleanly to transparent
+		assert (test_surface_alpha_at (rounded_strong, 4, 1) == 0);
+		assert (test_surface_alpha_at (rounded_strong, 24, 24) == 255);
+
+		// 2. Padded square icon (40x40 inside transparent 4px margins)
+		var padded_sq = new Surface (48, 48);
+		padded_sq.Context.set_source_rgba (0.9, 0.3, 0.2, 1.0);
+		padded_sq.Context.rectangle (4, 4, 40, 40);
+		padded_sq.Context.fill ();
+
+		var padded_img = surface_to_image_surface (padded_sq.Internal, 48, 48);
+		var padded_bounds = detect_square_icon_bounds (padded_img);
+		assert (padded_bounds.is_square);
+		assert (padded_bounds.x == 4 && padded_bounds.y == 4);
+		assert (padded_bounds.width == 40 && padded_bounds.height == 40);
+
+		var padded_rounded = apply_test_icon_rounding (padded_sq, 15);
+		assert (padded_rounded != null);
+		assert (test_surface_alpha_at (padded_rounded, 4, 4) == 0);
+		assert (test_surface_alpha_at (padded_rounded, 43, 4) == 0);
+		assert (test_surface_alpha_at (padded_rounded, 4, 43) == 0);
+		assert (test_surface_alpha_at (padded_rounded, 43, 43) == 0);
+		assert (test_surface_alpha_at (padded_rounded, 24, 24) == 255);
+
+		// 3. Native 5px rounded icon with baked faint outer shadow (alpha ~40)
+		var native_rounded = new Surface (48, 48);
+		native_rounded.Context.set_source_rgba (0.0, 0.0, 0.0, 0.15);
+		Theme.draw_rounded_rect (native_rounded.Context, 2, 3, 44, 44, 5.0, 5.0, 0.0);
+		native_rounded.Context.fill ();
+		native_rounded.Context.set_source_rgba (0.3, 0.7, 0.4, 1.0);
+		Theme.draw_rounded_rect (native_rounded.Context, 4, 4, 40, 40, 5.0, 5.0, 0.0);
+		native_rounded.Context.fill ();
+
+		assert (apply_test_icon_rounding (native_rounded, 25) == null);
+
+		// 4. Circular icon stays untouched
+		var circle = new Surface (48, 48);
+		circle.Context.set_source_rgba (0.1, 0.6, 0.8, 1.0);
+		circle.Context.arc (24, 24, 21, 0, 2 * Math.PI);
+		circle.Context.fill ();
+		assert (apply_test_icon_rounding (circle, 20) == null);
+
+		// 5. Thin separator bar stays untouched
+		var separator = new Surface (48, 48);
+		separator.Context.set_source_rgba (1.0, 1.0, 1.0, 1.0);
+		separator.Context.rectangle (22, 4, 4, 40);
+		separator.Context.fill ();
+		assert (apply_test_icon_rounding (separator, 15) == null);
+	}
+
+	void drawing_icon_rounding_prefs ()
+	{
+		var prefs1 = new DockPreferences ("round_test_dock1");
+		var prefs2 = new DockPreferences ("round_test_dock2");
+
+		assert (!prefs1.RoundSquareIcons);
+		assert (prefs1.IconCornerRadius == 10);
+
+		prefs1.RoundSquareIcons = true;
+		prefs1.IconCornerRadius = 18;
+		assert (!prefs2.RoundSquareIcons);
+		assert (prefs2.IconCornerRadius == 10);
+
+		prefs1.IconCornerRadius = DockPreferences.MIN_ICON_CORNER_RADIUS;
+		assert (prefs1.IconCornerRadius == 4);
+		prefs1.IconCornerRadius = DockPreferences.MAX_ICON_CORNER_RADIUS;
+		assert (prefs1.IconCornerRadius == 30);
+		assert (prefs2.IconCornerRadius == 10);
 	}
 }

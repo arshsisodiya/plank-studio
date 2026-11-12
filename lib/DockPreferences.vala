@@ -148,6 +148,14 @@ namespace Plank {
     public const int MAX_STACK_ANIMATION_SPEED = 800;
     public const int MIN_STACK_ITEM_SPACING = 0;
     public const int MAX_STACK_ITEM_SPACING = 48;
+    public const int MIN_ICON_CORNER_RADIUS = 4;
+    public const int MAX_ICON_CORNER_RADIUS = 30;
+
+    [Description (nick = "round-square-icons", blurb = "If true, apply rounded corners to square-cornered app icons.")]
+    public bool RoundSquareIcons { get; set; }
+
+    [Description (nick = "icon-corner-radius", blurb = "Corner radius for square icons, as a percentage of icon content size.")]
+    public int IconCornerRadius { get; set; }
 
     [Description (nick = "stack-mode", blurb = "If true, display dock items in a collapsible stack.")]
     public bool StackMode { get; set; }
@@ -263,6 +271,12 @@ namespace Plank {
           StackItemSpacing = MIN_STACK_ITEM_SPACING;
         else if (StackItemSpacing > MAX_STACK_ITEM_SPACING)
           StackItemSpacing = MAX_STACK_ITEM_SPACING;
+        break;
+      case "IconCornerRadius":
+        if (IconCornerRadius < MIN_ICON_CORNER_RADIUS)
+          IconCornerRadius = MIN_ICON_CORNER_RADIUS;
+        else if (IconCornerRadius > MAX_ICON_CORNER_RADIUS)
+          IconCornerRadius = MAX_ICON_CORNER_RADIUS;
         break;
       }
     }
