@@ -40,6 +40,9 @@ plank_version = meson.project_version()
 if not production_release and git.found()
   git_version = run_command(git, 'describe', '--tags', check: false).stdout().strip()
   if git_version != ''
+    if git_version.startswith('v')
+      git_version = git_version.substring(1)
+    endif
     plank_version = git_version.split('-')[0]
   endif
 endif

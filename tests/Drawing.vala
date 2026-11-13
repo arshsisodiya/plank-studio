@@ -540,6 +540,17 @@ namespace PlankTests
 		assert (pixbuf_equal (pixbuf2, pixbuf5.rotate_simple (Gdk.PixbufRotation.COUNTERCLOCKWISE)));
 	}
 
+	static void draw_test_rounded_rect (Cairo.Context cr, double x, double y, double w, double h, double r)
+	{
+		r = r.clamp (0.0, double.min (w, h) / 2.0);
+		cr.new_sub_path ();
+		cr.arc (x + w - r, y + r, r, -Math.PI_2, 0.0);
+		cr.arc (x + w - r, y + h - r, r, 0.0, Math.PI_2);
+		cr.arc (x + r, y + h - r, r, Math.PI_2, Math.PI);
+		cr.arc (x + r, y + r, r, Math.PI, Math.PI + Math.PI_2);
+		cr.close_path ();
+	}
+
 	uint8 test_surface_alpha_at (Surface surface, int x, int y)
 	{
 		var img = surface_to_image_surface (surface.Internal, surface.Width, surface.Height);
@@ -614,10 +625,10 @@ namespace PlankTests
 		// 3. Native 5px rounded icon with baked faint outer shadow (alpha ~40)
 		var native_rounded = new Surface (48, 48);
 		native_rounded.Context.set_source_rgba (0.0, 0.0, 0.0, 0.15);
-		Theme.draw_rounded_rect (native_rounded.Context, 2, 3, 44, 44, 5.0, 5.0, 0.0);
+		draw_test_rounded_rect (native_rounded.Context, 2, 3, 44, 44, 5.0);
 		native_rounded.Context.fill ();
 		native_rounded.Context.set_source_rgba (0.3, 0.7, 0.4, 1.0);
-		Theme.draw_rounded_rect (native_rounded.Context, 4, 4, 40, 40, 5.0, 5.0, 0.0);
+		draw_test_rounded_rect (native_rounded.Context, 4, 4, 40, 40, 5.0);
 		native_rounded.Context.fill ();
 
 		assert (apply_test_icon_rounding (native_rounded, 25) == null);

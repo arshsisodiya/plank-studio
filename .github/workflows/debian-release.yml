@@ -7,8 +7,13 @@ on:
   push:
     tags:
       - 'v*'
-      - '[0-9]+.[0-9]+.[0-9]+*'
+      - '[0-9]*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to upload to (e.g. v0.5.1)'
+        required: false
+        default: 'v0.5.1'
 
 permissions:
   contents: write
@@ -106,10 +111,25 @@ jobs:
           name: plank-reloaded-debian-${{ matrix.arch }}
           path: dist/plank-reloaded-debian_*.deb
 
+      - name: Determine Release Tag
+        id: release_tag
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG="${{ inputs.tag_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            VERSION=$(grep "version:" meson.build | head -1 | sed "s/.*version: '\([^']*\)'.*/\1/")
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
       - name: Upload Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
         with:
+          tag_name: ${{ steps.release_tag.outputs.tag }}
           files: dist/plank-reloaded-debian_*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
