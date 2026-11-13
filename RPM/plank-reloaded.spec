@@ -89,7 +89,7 @@ chmod 755 %{buildroot}%{_libdir}/libplank.so.*
 %{_datadir}/plank/
 %{_datadir}/applications/net.launchpad.plank.desktop
 %{_datadir}/glib-2.0/schemas/net.launchpad.plank.gschema.xml
-%{_datadir}/icons/hicolor/*/apps/plank-reloaded.png
+%{_datadir}/icons/hicolor/*/apps/plank*.png
 %{_mandir}/man1/plank.1.gz
 %{_datadir}/metainfo/plank.appdata.xml
 
@@ -116,6 +116,12 @@ if [ $1 -eq 0 ] ; then
 fi
 
 %changelog
+* Fri Nov 13 2026 Josh Ellithorpe <quest@mac.com> - 0.5.1-1
+- Rebrand application to Plank Studio with updated light and dark branding icons
+- Add Shelf docklet with dynamic sizing and customizable fixed resize mode
+- Drag and drop files/folders into and out of Shelf docklet
+- Update build configurations and release pipelines for 0.5.1
+
 * Sat Oct 17 2026 Josh Ellithorpe <quest@mac.com> - 0.11.178-1
 - Fix the FreeBSD build, broken since 0.11.176: GLib now restores the default action for SIGINT and SIGTERM itself, instead of a call that needed glibc's sighandler_t (thanks VVD)
 - Run an AppImage opened from the dock, whether pinned or in a folder stack, instead of failing to find an app for it, and make it executable first if it belongs to the user

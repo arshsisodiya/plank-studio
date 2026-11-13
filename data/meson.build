@@ -26,11 +26,15 @@ i18n.merge_file(
 )
 
 icons_dir = join_paths(get_option('datadir'), 'icons', 'hicolor')
-foreach size : ['16x16', '22x22', '24x24', '32x32', '48x48', '64x64', '128x128']
-  install_data(
-    join_paths('icons', size, 'plank-reloaded.png'),
-    install_dir: join_paths(icons_dir, size, 'apps'),
-  )
+icon_sizes = ['16x16', '22x22', '24x24', '32x32', '48x48', '64x64', '128x128', '256x256', '512x512']
+icon_names = ['plank-studio.png', 'plank-studio-dark.png', 'plank-studio-light.png', 'plank-reloaded.png', 'plank.png']
+foreach size : icon_sizes
+  foreach name : icon_names
+    install_data(
+      join_paths('icons', size, name),
+      install_dir: join_paths(icons_dir, size, 'apps'),
+    )
+  endforeach
 endforeach
 
 themes_dir = join_paths(pkgdata_dir, 'themes')

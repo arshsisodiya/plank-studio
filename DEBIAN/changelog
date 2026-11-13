@@ -1,3 +1,12 @@
+plank-reloaded (0.5.1-1) unstable; urgency=medium
+
+  * Rebrand application to Plank Studio with updated light and dark branding icons
+  * Add Shelf docklet with dynamic sizing and customizable fixed resize mode
+  * Drag and drop files/folders into and out of Shelf docklet
+  * Update build configurations and release pipelines for 0.5.1
+
+ -- Josh Ellithorpe <quest@mac.com>  Fri, 13 Nov 2026 13:00:00 +0000
+
 plank-reloaded (0.11.178-1) unstable; urgency=medium
 
   * Fix the FreeBSD build, broken since 0.11.176: GLib now restores the default action for SIGINT and SIGTERM itself, instead of a call that needed glibc's sighandler_t (thanks VVD)

@@ -10,6 +10,15 @@
 - Route the D-Bus Items interface per dock, so clients can address a single dock; `get_instance()` and the existing single-dock behaviour are unchanged
 - Make a D-Bus item removal of a file or folder delete its dock item file too, so the item stays gone after a restart
 
+## 0.5.1 "Studio" (2026-11-13)
+
+- Rebrand application to Plank Studio with updated modern light and dark dock icons
+- Add Shelf docklet for temporary file/folder staging with drag and drop support
+- Add Shelf size settings: Dynamic Size (default) and Fixed Size with resize mode and corner/edge dragging
+- Fix Shelf panel timer use-after-free crash on timeout closure
+- Dragging files out of Shelf removes them from the shelf
+- Update release workflows and packaging pipelines for 0.5.1
+
 ## 0.11.178 "Reloaded" (2026-10-17)
 
 - Fix the FreeBSD build, broken since 0.11.176: GLib now restores the default action for SIGINT and SIGTERM itself, instead of a call that needed glibc's sighandler_t (thanks VVD)

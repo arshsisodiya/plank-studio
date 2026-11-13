@@ -3,7 +3,15 @@ name: Build and Release - Debian Bookworm
 
 on:
   release:
-    types: [created]
+    types: [created, published]
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -71,6 +79,7 @@ jobs:
           cd dist
           sed -i "s/^Architecture: .*/Architecture: ${ARCH}/" plank-reloaded-debian/DEBIAN/control
           VERSION=$(sed -n "s/^Version: //p" plank-reloaded-debian/DEBIAN/control)
+          mkdir -p plank-reloaded-debian/usr/share/doc/plank-reloaded
           mv plank-reloaded-debian/DEBIAN/changelog plank-reloaded-debian/usr/share/doc/plank-reloaded/changelog.Debian
           mv plank-reloaded-debian/DEBIAN/copyright plank-reloaded-debian/usr/share/doc/plank-reloaded/
           gzip -9n plank-reloaded-debian/usr/share/doc/plank-reloaded/changelog.Debian
@@ -91,9 +100,15 @@ jobs:
           dpkg --info plank-reloaded-debian_*.deb
           dpkg --contents plank-reloaded-debian_*.deb
 
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plank-reloaded-debian-${{ matrix.arch }}
+          path: dist/plank-reloaded-debian_*.deb
+
       - name: Upload Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
         with:
           files: dist/plank-reloaded-debian_*.deb
         env:

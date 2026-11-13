@@ -56,12 +56,12 @@ namespace Plank {
               build_version: Build.VERSION,
               build_version_info: Build.VERSION_INFO,
 
-              program_name: "Plank Reloaded",
+              program_name: "Plank Studio",
               exec_name: "plank",
 
               app_copyright: "2011-2026",
               app_dbus: "net.launchpad.plank",
-              app_icon: "plank-reloaded",
+              app_icon: "plank-studio",
               app_launcher: "net.launchpad.plank.desktop",
 
               main_url: "https://github.com/zquestz/plank-reloaded",

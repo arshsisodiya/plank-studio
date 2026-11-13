@@ -3,11 +3,11 @@
 <component type="desktop">
   <id>net.launchpad.plank.desktop</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <name>Plank Reloaded</name>
+  <name>Plank Studio</name>
   <summary>Still stupidly simple</summary>
   <description>
     <p>
-      Plank Reloaded is a fork of the original Plank project, providing a simple dock for X11 desktop environments. While development began with a focus on Cinnamon, we now actively support multiple desktop environments including MATE and Xfce. Wayland is not supported at this time.
+      Plank Studio is a fork of Plank Reloaded and the original Plank project, providing an elegant, feature-rich dock system for X11 desktop environments.
     </p>
     <p>
       Like its predecessor, Plank Reloaded aims to be the simplest dock on the planet, providing just what a dock needs and absolutely nothing more. It also remains a library which can be extended to create other dock programs with more advanced features.
@@ -35,6 +35,7 @@
   <launchable type="desktop-id">net.launchpad.plank.desktop</launchable>
   <content_rating type="oars-1.0" />
   <releases>
+    <release version="0.5.1" timestamp="1794555734" />
     <release version="0.11.178" timestamp="1792274016" />
     <release version="0.11.177" timestamp="1792099422" />
     <release version="0.11.176" timestamp="1791605090" />

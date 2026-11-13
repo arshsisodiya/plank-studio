@@ -169,7 +169,7 @@ namespace Plank {
 
     construct
     {
-      set_title (_("Plank Preferences"));
+      set_title (_("Plank Studio Preferences"));
 
       prefs = controller.prefs;
       dock_manager = Factory.main.dock_manager;

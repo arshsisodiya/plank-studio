@@ -28,8 +28,19 @@ namespace Plank {
     public DockController? controller { get; construct; }
 
     public PlankDockItem (DockController? controller = null) {
-      GLib.Object (Prefs : new DockItemPreferences (), Text: "Plank", Icon: "plank",
+      GLib.Object (Prefs : new DockItemPreferences (), Text: "Plank Studio", Icon: "plank-studio",
                    controller: controller);
+      if (controller != null) {
+        update_icon_for_theme ();
+        controller.prefs.notify["theme"].connect (() => update_icon_for_theme ());
+      }
+    }
+
+    private void update_icon_for_theme () {
+      if (controller != null && controller.prefs.Theme.has_suffix ("-Light"))
+        Icon = "plank-studio-light";
+      else
+        Icon = "plank-studio";
     }
 
     construct
