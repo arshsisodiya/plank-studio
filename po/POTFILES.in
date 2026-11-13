@@ -23,6 +23,14 @@ docklets/Desktop/DesktopDocklet.vala
 docklets/Notifications/NotificationsDockItem.vala
 docklets/Notifications/NotificationsDocklet.vala
 docklets/Notifications/NotificationsPreferences.vala
+docklets/Shelf/ShelfDockItem.vala
+docklets/Shelf/ShelfDocklet.vala
+docklets/Shelf/ShelfEntry.vala
+docklets/Shelf/ShelfPanel.vala
+docklets/Shelf/ShelfPreferences.vala
+docklets/Shelf/ShelfStore.vala
+docklets/Shelf/ShelfTile.vala
+docklets/Shelf/ShelfUtils.vala
 docklets/Trash/TrashDockItem.vala
 docklets/Trash/TrashDocklet.vala
 docklets/Separator/SeparatorDockItem.vala

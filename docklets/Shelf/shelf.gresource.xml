@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<gresources>
+	<gresource prefix="/net/launchpad/plank/docklets/shelf">
+		<file
+      compressed="true"
+      preprocess="xml-stripblanks"
+    >icons/shelf.svg</file>
+		<file
+      compressed="true"
+      preprocess="xml-stripblanks"
+    >icons/shelf-blue.svg</file>
+	</gresource>
+</gresources>

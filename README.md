@@ -1,82 +1,161 @@
-# Plank Reloaded
+# Plank Studio
 
 [![GitHub Release](https://img.shields.io/github/v/release/zquestz/plank-reloaded)](https://github.com/zquestz/plank-reloaded/releases) [![Crowdin](https://badges.crowdin.net/plank-reloaded/localized.svg)](https://crowdin.com/project/plank-reloaded)
 
-## What Is Plank Reloaded?
+## What Is Plank Studio?
 
-Plank Reloaded is a fork of the original [Plank](https://launchpad.net/plank) project, providing a simple dock for X11 desktop environments. We actively support Cinnamon, MATE, Xfce, and KDE. Wayland is not supported at this time.
+**Plank Studio** is a fork of **Plank Reloaded**, which is a fork of the original **[Plank](https://launchpad.net/plank)** project. It provides an elegant, feature-rich, and lightning-fast dock system designed specifically for X11 desktop environments (Cinnamon, MATE, Xfce, KDE, and more). Wayland is not supported at this time.
 
-Like its predecessor, Plank Reloaded aims to be the simplest dock on the planet, providing just what a dock needs and absolutely nothing more. It also remains a library which can be extended to create other dock programs with more advanced features.
+Originally built as a lightweight, barebones dock application ("the simplest dock on the planet"), Plank Studio significantly expands upon this foundation. It transforms the dock into a versatile, modern desktop dock system — introducing multi-dock management, collapsible dock stacks, native file and folder integration, a new Shelf workspace docklet, smart square icon rounding, customizable hover-to-zoom effects, and rich window previews — all while retaining the buttery-smooth performance, minimal resource usage, and clean aesthetics of the original Plank.
 
-![Plank Reloaded on Linux Mint](screenshots/plank-reloaded-mint.webp)
+![Plank Studio on Linux Mint](screenshots/plank-reloaded-mint.webp)
 
-### Key Improvements in Plank Reloaded
+---
 
-- Enhanced compatibility with X11 desktop environments (Cinnamon, MATE, Xfce, and KDE)
-- Translated into 71 languages
-- Migrated to modern meson build system for easier compilation and installation
-- Anchor docklets and files to the end of the dock
-- Fixed Restrict to Workspace so applications only show up on their active workspace
-- Max zoom increased to 400%
-- Floating dock support with configurable gap from the screen edge
-- Multiple docks in a single instance, each with its own settings, theme, position and items
-- Multi-monitor support with active display tracking
-- Window previews on hover, with click to focus, close buttons, and adjustable delay and size
-- Comprehensive docklet improvements:
-  - Applications: Better reliability and fixed duplicate items issue
-  - Battery: Modern UPower integration
-  - Clock: Enhanced digital display with new pop-up calendar
-  - Clippy: Image support, improved text handling and menu organization
-  - Notifications: Displays system notifications on the dock
-  - Separator: A simple separator so you can set up a macOS-like dock experience
-  - Workspaces: A graphical workspace switcher
-  - Refreshed icons across all docklets
-  - Support for third party docklets
-- Added Matte-Light, Minimal, and Minimal-Light themes
-- Added theme options to set the indicator, active item, and badge styles
+## Key Features & New Improvements
+
+Plank Studio retains the core purpose of an intuitive desktop dock while introducing a comprehensive suite of powerful features and customization options:
+
+### 1. Multiple Independent Docks
+Run multiple docks on a single desktop simultaneously from a single process:
+- **Up to 8 Independent Docks**: Create, duplicate, rename, enable, disable, or delete docks in one place.
+- **Independent Placement**: Position docks on any screen edge (**Bottom**, **Top**, **Left**, or **Right**) and choose alignment (**Start**, **Center**, **End**, or **Fill**).
+- **Collision Avoidance & Overlap Prevention**: The **"Keep docks from overlapping"** feature automatically calculates collision offsets and nudges adjacent docks apart when they share the same monitor edge.
+- **Multi-Monitor & Active Display Tracking**: Place docks on specific monitors or enable **"On Active Display"** so docks dynamically follow the mouse cursor between monitors (with `killall -USR1 plank` shortcut support).
+- **Per-Dock Independence**: Each dock retains its own launchers folder, item list, visual theme, hiding behavior, effects, and docklets.
+
+### 2. Redesigned Preferences Hub
+The Preferences window has been completely reimagined for effortless multi-dock management:
+- **Persistent Dock Sidebar**: Easily switch between configuring different docks with a single click.
+- **Dock Management Actions**: Quick-access header menu to rename, duplicate, and delete the active dock, with a dedicated **Add Dock** button.
+- **Well-Organized Settings Tabs**:
+  - **Appearance**: Theme selection, icon sizing (16–128 px), floating dock gap size (0–200 px), item alignment, and self-dock item visibility.
+  - **Position**: Screen edge, monitor targeting, active display tracking, alignment offset (-100% to 100%), and area modes.
+  - **Behaviour**: Hiding modes (Intelligent, Auto-hide, Dodge Maximized, Window Dodge, Dodge Active), hide/unhide delays, pressure reveal, and workspace restrictions.
+  - **Effects**: Dedicated configuration for hover-to-zoom controls, collapsible stack mode options, and square icon rounding sliders.
+  - **Items**: Granular list view to manage, reorder, lock, anchor, and delete pinned applications, files, and folders.
+  - **Docklets**: Browse and add built-in docklets to the active dock with live configuration.
+- **Toggle Dock Item**: Includes an explicit **"Show Plank Item"** toggle to display or hide the dock's own launcher icon.
+
+### 3. Hideable / Collapsible Dock (Stackable Mode)
+A space-saving collapsible dock mode designed for ultra-clean desktops:
+- **Compact Single-Icon Stack**: Collapse an entire dock into a compact, single-icon stack featuring a sleek collapse handle and an item counter badge.
+- **Smooth Staggered Cascade Animation**: Clicking the stack smoothly expands all items outward using customized cubic-bezier easing curves.
+- **Directional Expansion**: Expand dock items in any of four directions: **Up**, **Down**, **Left**, or **Right** to fit any desktop edge or orientation.
+- **Fine-Grained Controls**:
+  - **Animation Speed**: Adjustable expand/collapse duration (100 ms to 800 ms).
+  - **Item Spacing**: Configurable expansion padding (0 px to 48 px).
+- **Smart Interactions**: Auto-expands when dragging items over the collapsed stack and automatically collapses when clicking outside.
+
+### 4. Smart Square Icon Rounding
+Eliminate mismatched, boxy icons and achieve visual harmony across diverse icon themes:
+- **Automatic Edge Detection**: Algorithmic alpha-threshold analysis detects sharp square-cornered icons (including full-bleed designs and icons with transparent padding).
+- **Preserves Existing Shapes**: Leaves already-rounded icons, circular icons, separators, and custom docklet shapes untouched.
+- **Configurable Roundness**: Adjust corner radius between **4% and 30%** (default 10%) per dock.
+- **Optimized Performance**: Features per-item and per-size surface caching with full HiDPI / device-scale preservation.
+
+### 5. Customizable Hover-to-Zoom Effect
+Give your dock fluid, interactive visual feedback on mouse hover:
+- **Dedicated Effects Page**: Configure zoom behavior independently for each dock.
+- **Toggle Zoom**: Easily turn the zoom effect on or off.
+- **Magnification Scaling**: Smoothly adjust icon magnification from **100% up to 400%**.
+
+### 6. Granular Running Application Visibility
+Take total control over how running applications are represented on each dock:
+- **Show Newly Opened Applications**: Toggle whether applications opened after startup automatically appear as unpinned dock items.
+- **Only Show Pinned Applications**: Restrict a dock exclusively to pinned favorites — ideal for dual-dock setups where one dock acts as a fixed launcher and another tracks active tasks.
+- **Restrict to Workspace**: Only show application windows active on the current virtual desktop.
+- **Bring to Current Workspace**: Option to pull windows from other workspaces onto the current desktop upon activation.
+
+### 7. Desktop Drag-and-Drop Management
+Managing dock items is faster and more intuitive:
+- **Direct Drag-and-Drop**: Drag `.desktop` application launchers, files, and directories from your desktop or file manager straight onto any dock.
+- **Live Insertion Feedback**: Visual drop target indicators show exact placement while dragging.
+- **Expand-on-Hover**: Dragging items over a collapsed stack automatically reveals the dock so you can drop items precisely where you want.
+
+### 8. Native File & Folder Support
+Expand your dock beyond traditional application shortcuts:
+- **Pin Files & Folders**: Directly pin documents, text files, media, scripts, and directories onto any dock.
+- **Direct Opening**: Launch pinned files and folders instantly using the system's default applications.
+- **Edge Anchoring**: Anchor files (`anchor-files`) and docklets (`anchor-docklets`) to the edges of the dock independently, maintaining a clean visual separation between apps and documents.
+
+### 9. New "Shelf" Docklet – Integrated File & Folder Workspace
+A powerful new docklet designed for fast file and folder staging and access:
+- **Temporary Staging Area**: Collect files and folders by dragging them onto the Shelf icon or open panel without copying, moving, or altering original files.
+- **Adaptive Translucent Panel**: Floats adjacent to the Shelf docklet, adapting automatically to bottom, top, left, or right dock placements.
+- **In-Panel Folder Hierarchy Browsing**: Navigate through nested directory structures directly inside the Shelf panel using clickable breadcrumbs and back navigation.
+- **Grid and List Views**: View collected files and folders in a clean icon grid or detailed list view.
+- **Instant Launch & Previews**: Launch files in default applications, preview file states, and clear or remove entries whenever needed.
+
+### 10. Rich Window Previews
+Preview open application windows directly from the dock:
+- **Hover Previews**: Hovering over running applications displays live window thumbnails along with window titles.
+- **Focus & Close Controls**: Click any preview to bring that window into immediate focus, or click the inline close button to dismiss it.
+- **Minimized Window Capture**: Displays thumbnails for minimized windows when supported by the window manager (with fallback to cached thumbnail or app icon).
+- **Customizable Timing & Sizing**: Adjust preview delay (0 to 2500 ms) and thumbnail size (64 to 640 px).
+
+### 11. Performance, Smoothness & Stability
+Refined under-the-hood architecture for maximum reliability and responsiveness:
+- **High-Performance Cairo Rendering**: Subpixel item and shadow rendering avoids Xlib surface churn and flicker during resize and expand animations.
+- **Crash Prevention**: Comprehensive guards across X11 GenericEvent filtering, monitor changes, and widget lifecycles prevent crashes during rapid desktop events.
+- **Empty-Space Context Menus**: Right-clicking empty dock space reliably opens dock settings and context actions without signal disconnection.
+- **Focused Dialogs**: Preferences and About dialogs open reliably in front of active windows.
+
+### 12. Modern Visual Identity
+- **Updated Branding**: Redesigned modern application icon reflecting Plank Studio's evolution while preserving the recognizable visual identity of the Plank family.
+
+### 13. Rich Docklet Ecosystem
+Plank Studio includes a comprehensive collection of built-in docklets:
+- **Shelf**: Quick file/folder collection, navigation, and staging.
+- **Applications**: Quick desktop application launcher menu.
+- **Battery**: Real-time battery status with modern UPower integration.
+- **Clock**: Digital clock display with an interactive pop-up calendar.
+- **Clippy**: Clipboard history manager supporting text and image history.
+- **Desktop**: Instant "Show Desktop" toggle.
+- **Notifications**: Displays system notifications right on the dock.
+- **Separator**: Clean dividers to visually group dock items.
+- **Trash**: Trash docklet with drag-to-delete and quick empty actions.
+- **Workspaces**: Visual graphical workspace pager and switcher.
+- **Third-Party Docklet Support**: Full API compatibility for custom third-party docklets.
+
+---
 
 ## Themes
 
-Plank Reloaded ships with six built-in themes. You can switch themes in **Preferences → Appearance → Theme**.
+Plank Studio ships with six built-in themes. You can switch themes in **Preferences → Appearance → Theme**.
 
 ### Default
-
 ![Default Theme](screenshots/default.webp)
 
 ### Matte
-
 ![Matte Theme](screenshots/matte.webp)
 
 ### Matte Light
-
 ![Matte Light Theme](screenshots/matte-light.webp)
 
 ### Minimal
-
 ![Minimal Theme](screenshots/minimal.webp)
 
 ### Minimal Light
-
 ![Minimal Light Theme](screenshots/minimal-light.webp)
 
 ### Transparent
-
 ![Transparent Theme](screenshots/transparent.webp)
 
 ### GTK Themes
+Plank Studio also supports GTK themes. To use one, install it and set it as your default theme, then select **Gtk+** as the Plank Studio theme in preferences.
 
-Plank Reloaded also supports GTK themes. To use one, install it and set it as your default theme, then select **Gtk+** as the Plank Reloaded theme in preferences.
-
-Here is a list of themes known to support Plank Reloaded:
-
+Here is a list of themes known to support Plank docks:
 - [Celestial](https://github.com/zquestz/celestial-gtk-theme)
 - [Matcha](https://github.com/zquestz/Matcha-gtk-theme)
 - [Semabe](https://github.com/sewbej/Plank-Themes)
 - [WhiteSur](https://github.com/vinceliuice/WhiteSur-gtk-theme)
 
+---
+
 ## Installation
 
-Expand your distribution below for packages and, where provided, steps to build from source, including the build dependencies to install.
+Expand your distribution below for package instructions or steps to build from source with required dependencies.
 
 <details markdown="1">
 <summary><strong>Arch Linux</strong></summary>
@@ -92,24 +171,20 @@ yay -S plank-reloaded-git
 
 #### Option 1: Using the PPA (Recommended)
 
-Plank Reloaded is available for Ubuntu through an official PPA. This is the easiest way to install and keep Plank Reloaded updated.
-
 ```bash
 # Add the repository
 curl -fsSL https://zquestz.github.io/ppa/ubuntu/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/zquestz-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/zquestz-archive-keyring.gpg] https://zquestz.github.io/ppa/ubuntu ./" | sudo tee /etc/apt/sources.list.d/zquestz.list
 sudo apt update
 
-# Install Plank Reloaded
+# Install Plank Studio
 sudo apt install plank-reloaded
 ```
 
-#### Option 2: Manual Installation
-
-You can download the `plank-reloaded.deb` package from the [Releases](https://github.com/zquestz/plank-reloaded/releases) page or build from source using the instructions below.
+#### Option 2: Building from Source
 
 ```bash
-# Completely uninstall plank
+# Remove old plank versions to prevent library conflicts
 sudo apt remove plank libplank-common libplank1
 
 # Install required dependencies
@@ -117,8 +192,6 @@ sudo apt install build-essential pkg-config git meson ninja-build valac gettext 
 
 # Clone the repository
 git clone https://github.com/zquestz/plank-reloaded.git
-
-# Enter the directory
 cd plank-reloaded
 
 # Build and install
@@ -134,24 +207,20 @@ sudo meson install -C build
 
 #### Option 1: Using the PPA (Recommended)
 
-Plank Reloaded is available for Debian through an official PPA. This is the easiest way to install and keep Plank Reloaded updated.
-
 ```bash
 # Add the repository
 curl -fsSL https://zquestz.github.io/ppa/debian/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/zquestz-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/zquestz-archive-keyring.gpg] https://zquestz.github.io/ppa/debian ./" | sudo tee /etc/apt/sources.list.d/zquestz.list
 sudo apt update
 
-# Install Plank Reloaded
+# Install Plank Studio
 sudo apt install plank-reloaded
 ```
 
-#### Option 2: Manual Installation
-
-You can download the `plank-reloaded-debian.deb` package from the [Releases](https://github.com/zquestz/plank-reloaded/releases) page or build from source using the instructions below.
+#### Option 2: Building from Source
 
 ```bash
-# Completely uninstall plank
+# Remove old plank versions
 sudo apt remove plank libplank-common libplank1
 
 # Install required dependencies
@@ -159,8 +228,40 @@ sudo apt install build-essential pkg-config git meson ninja-build valac gettext 
 
 # Clone the repository
 git clone https://github.com/zquestz/plank-reloaded.git
+cd plank-reloaded
 
-# Enter the directory
+# Build and install
+meson setup --prefix=/usr build
+meson compile -C build
+sudo meson install -C build
+```
+
+</details>
+
+<details markdown="1">
+<summary><strong>Fedora</strong></summary>
+
+Plank Studio works on Fedora when running in X11 mode.
+
+#### Option 1: Using RPM Packages
+Download RPM packages from the [Releases](https://github.com/zquestz/plank-reloaded/releases) page:
+
+```bash
+sudo dnf install ./plank-reloaded-*.rpm
+```
+
+#### Option 2: Building from Source
+
+```bash
+# Set X11 backend environment
+export GDK_BACKEND=x11
+export XDG_SESSION_TYPE=x11
+
+# Install required dependencies
+sudo dnf install git meson ninja-build valac clang cmake libgnome-devel libxml2-devel gnome-menus-devel libgee libgee-devel libdbusmenu-gtk3-devel libdbusmenu-gtk3 libwnck3 libwnck3-devel libcanberra-devel bamf bamf-devel bamf-daemon
+
+# Clone the repository
+git clone https://github.com/zquestz/plank-reloaded.git
 cd plank-reloaded
 
 # Build and install
@@ -174,8 +275,7 @@ sudo meson install -C build
 <details markdown="1">
 <summary><strong>openSUSE</strong></summary>
 
-There is a community supported openSUSE package available at:
-
+A community package is available at:
 [https://build.opensuse.org/package/show/home:asdhio/plank](https://build.opensuse.org/package/show/home:asdhio/plank)
 
 </details>
@@ -183,358 +283,171 @@ There is a community supported openSUSE package available at:
 <details markdown="1">
 <summary><strong>FreeBSD</strong></summary>
 
-Plank Reloaded is available in the FreeBSD Ports Collection.
+Plank Studio is available in the FreeBSD Ports Collection:
 
 #### Using pkg (Binary Package)
-
 ```bash
 pkg install x11/plank
 ```
 
-#### Using the Ports Collection
-
+#### Using Ports
 ```bash
 cd /usr/ports/x11/plank
 make install clean
 ```
-
-For more information about the port, visit [FreshPorts](https://www.freshports.org/x11/plank/).
 
 </details>
 
 <details markdown="1">
 <summary><strong>Nix</strong></summary>
 
-There is a Nix flake available for Plank Reloaded located at [./flake.nix](./flake.nix).
+A Nix flake is available at [./flake.nix](./flake.nix).
 
-#### Running
-
-An easy way to test out plank reloaded if you have flakes enabled is to simply run
-
+#### Running with Flakes
 ```sh
 nix run github:zquestz/plank-reloaded
 ```
 
-This will download, build and launch the dock
-
-#### Building
-
-To build plank-reloaded on Nix, simply run
-
+#### Building with Nix
 ```sh
 nix build github:zquestz/plank-reloaded
 ```
 
-The built application will be generated in the "result" directory of
-the current directory. You can then launch it by running the executable located at `./result/bin/plank`
-
-You can also build the app locally by doing the following steps:
-
-1. Clone the repository
-
-   ```sh
-   git clone https://github.com/zquestz/plank-reloaded.git
-   ```
-
-2. Switch to the repository's directory
-
-   ```sh
-   cd plank-reloaded
-   ```
-
-3. Build plank reloaded
-   ```sh
-   nix build .
-   ```
-
-#### System-wide Installation
-
-To include Plank Reloaded in your system-wide packages, do the following steps to incorporate the flake. Note that the following is an example system config. Yours most likely will be different.
-
-1. First add the plank-reloaded flake to the inputs section of your own system's flake and add it as a parameter to your outputs:
-
-   ```nix
-   {
-       inputs = {
-           nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-           plank-reloaded = {
-               url = "github:zquestz/plank-reloaded";
-               inputs.nixpkgs.follows = "nixpkgs";
-           };
-           # ...
-       };
-       outputs = inputs @ {
-               self,
-               nixpkgs,
-               plank-reloaded,
-               # ...
-           }: {
-           nixosConfigurations.my-computer = nixpkgs.lib.nixosSystem {
-               system = "x86_64-linux";
-               specialArgs = { inherit plank-reloaded; };
-               modules = [
-                   ./configuration.nix
-                   # ...
-               ];
-           };
-       };
-   }
-   ```
-
-2. Next, in your `configuration.nix` or whichever module you prefer, add plank reloaded to your system packages
-
-   ```nix
-   { config, pkgs, plank-reloaded, ... }:
-   let
-       # Allows the package to be referred to by a handy variable
-       plank-reloaded = plank-reloaded.defaultPackage.${pkgs.system};
-   in {
-       environment.systemPackages = with pkgs; [
-          plank-reloaded
-          # ...
-       ];
-       # ...
-   }
-   ```
-
-   Note that in order for your module to import plank-reloaded, you will need to pass either `plank-reloaded` or `inputs` into `specialArgs` for NixOS or `home-manager.extraSpecialArgs` if running home manager. The above example just passes `plank-reloaded` to the module.
-
-3. Rebuild your system:
-   ```sh
-   sudo nixos-rebuild switch
-   ```
-4. Verify installation by running:
-   ```sh
-   plank
-   ```
-
-#### Credits
-
-Thanks to [thecreativedg](https://github.com/thecreativedg) for the initial flake which can be found at:
-
-[https://github.com/thecreativedg/plank-reloaded-flake](https://github.com/thecreativedg/plank-reloaded-flake)
+The built executable will be located at `./result/bin/plank`.
 
 </details>
 
+---
+
+## Frequently Asked Questions (FAQ)
+
 <details markdown="1">
-<summary><strong>Fedora</strong></summary>
+<summary><strong>Can I use Plank Studio on Wayland?</strong></summary>
 
-Plank Reloaded works on Fedora when running in X11 mode.
+No. Plank Studio is designed for X11 desktop environments only. Wayland is not supported at this time.
+</details>
 
-#### Option 1: Using RPM Packages (Recommended for X11 users)
+<details markdown="1">
+<summary><strong>How do I access Plank Studio preferences?</strong></summary>
 
-You can download the latest RPM packages from the [Releases](https://github.com/zquestz/plank-reloaded/releases) page.
+There are three easy ways to open Preferences:
+1. **Right-Click Empty Space**: Right-click on any empty space of the dock and select **Preferences**.
+2. **Ctrl + Right-Click**: Hold the <kbd>Ctrl</kbd> key while right-clicking anywhere on the dock.
+3. **Plank Dock Item**: If **"Show Plank Item"** is enabled in Appearance preferences, right-click the Plank Studio icon and click **Preferences**.
+</details>
 
+<details markdown="1">
+<summary><strong>How do I create and manage multiple docks?</strong></summary>
+
+Open **Preferences**. In the sidebar on the left:
+- Click **+ Add Dock** to create a new dock.
+- Click on any dock in the sidebar to configure its settings.
+- Use the header menu next to the dock name to **Rename**, **Duplicate**, or **Delete** the dock.
+- Enable or disable docks using their toggle switch.
+
+Enable **"Keep docks from overlapping"** to automatically prevent multiple docks on the same screen edge from overlapping.
+</details>
+
+<details markdown="1">
+<summary><strong>How do I use Collapsible Stack Mode?</strong></summary>
+
+1. Open **Preferences → Effects**.
+2. Toggle on **Enable Stackable Mode**.
+3. Choose your preferred **Stack Expansion Direction** (Up, Down, Left, or Right).
+4. Optionally adjust **Animation Speed** and **Item Spacing**.
+5. Click the collapsed stack icon on your dock to smoothly expand and collapse your items.
+</details>
+
+<details markdown="1">
+<summary><strong>Does Plank Studio work with multiple monitors?</strong></summary>
+
+Yes! You can:
+- Assign specific docks to dedicated monitors under **Preferences → Position → Monitor**.
+- Enable **"On Active Display"** to have the dock follow your mouse cursor to whichever monitor you are actively using.
+- Move docks to your active monitor via a keyboard shortcut by triggering the USR1 signal:
+  ```bash
+  killall -USR1 plank
+  ```
+</details>
+
+<details markdown="1">
+<summary><strong>How do I auto-start Plank Studio on login?</strong></summary>
+
+Add Plank Studio to your desktop environment's startup applications. The launch command is simply:
 ```bash
-# Install the downloaded package
-sudo dnf install ./plank-reloaded-*.rpm
-
-# Optional: Install development files if you plan to develop docklets
-sudo dnf install ./plank-reloaded-devel-*.rpm
-```
-
-#### Option 2: Build from Source
-
-If you prefer to build from source or are using Wayland (with limitations):
-
-```bash
-# To start Plank you will need to set the following environment variables:
-GDK_BACKEND=x11
-XDG_SESSION_TYPE=x11
-
-# Install required dependencies
-sudo dnf install git meson valac clang cmake libgnome-devel libxml2-devel gnome-menus-devel libgee libgee-devel libdbusmenu-gtk3-devel libdbusmenu-gtk3 libwnck3 libwnck3-devel libcanberra-devel bamf bamf-devel bamf-daemon
-
-# Clone the repository
-git clone https://github.com/zquestz/plank-reloaded.git
-
-# Enter the directory
-cd plank-reloaded
-
-# Build and install
-meson setup --prefix=/usr build
-meson compile -C build
-sudo meson install -C build
-```
-
-Note: For other distributions, you'll need to build from source. The build dependencies and commands may vary slightly depending on your distribution.
-
-</details>
-
-## FAQ
-
-<details markdown="1">
-<summary><strong>Can I use Plank Reloaded on Wayland?</strong></summary>
-
-No, Plank Reloaded is designed for X11 desktop environments only. Wayland is not supported at this time.
-
-</details>
-
-<details markdown="1">
-<summary><strong>How do I access Plank Reloaded preferences?</strong></summary>
-
-Hold Ctrl while right-clicking on any area of the dock to open the Preferences menu.
-
-</details>
-
-<details markdown="1">
-<summary><strong>Can I run Plank Reloaded alongside the original Plank?</strong></summary>
-
-No, you should completely uninstall the original Plank before installing Plank Reloaded to avoid conflicts. See the installation instructions for details.
-
-</details>
-
-<details markdown="1">
-<summary><strong>How do I auto-start Plank Reloaded when I log in?</strong></summary>
-
-Add Plank Reloaded to your desktop environment's startup applications. The command to use is simply `plank`.
-
-</details>
-
-<details markdown="1">
-<summary><strong>Does Plank Reloaded work with multiple monitors?</strong></summary>
-
-Yes. A single Plank Reloaded instance can run several docks, each with its own settings, theme, position and items. Open **Preferences → Docks** to add, rename, duplicate, enable or disable docks, and use **Items** to manage the files and folders on the selected dock.
-
-Each dock is placed independently. Docks that would overlap on the same screen edge are moved apart automatically while **Keep docks from overlapping** is enabled. Every dock remembers its position across restarts.
-
-Separate processes launched with different names still work as before:
-
-```bash
-# Launch first dock
 plank
-
-# Launch second dock in its own process
-plank -n dock2
 ```
-
-#### Moving Docks Between Monitors
-
-You can move docks to your active monitor (where your cursor is) by enabling "On Active Display" in the preferences or by sending a USR1 signal to the plank process:
-
-```bash
-killall -USR1 plank
-```
-
-The signaling feature is particularly useful when:
-
-- Assigned to a global keyboard shortcut
-- Configured as a hot corner action
-- Working with dynamic multi-monitor setups
-
+All enabled docks will automatically launch together.
 </details>
 
 <details markdown="1">
-<summary><strong>Why can't I see certain applications in the dock?</strong></summary>
+<summary><strong>Can I run Plank Studio alongside the original Plank?</strong></summary>
 
-Check if "Restrict to Workspace" is enabled in preferences. When enabled, applications will only show up on the workspace they're active on.
-
-</details>
-
-<details markdown="1">
-<summary><strong>Why does my dock fade instead of slide when hiding?</strong></summary>
-
-The hide animation style is controlled by your dock theme's `FadeOpacity` setting. When `FadeOpacity` is `1`, the dock slides in and out. When it's less than `1` (e.g., `0`), the dock fades instead. The Default and Transparent themes use slide, while Matte and Matte-Light use fade. You can change this in your theme's `dock.theme` file or switch themes in **Preferences → Appearance → Theme**.
-
-</details>
-
-<details markdown="1">
-<summary><strong>Does Plank Reloaded work with graphics tablets?</strong></summary>
-
-Yes, with one limitation. Tablet pens unhide the dock via hover, and this works for both flush docks (GapSize of 0) and floating docks (GapSize greater than 0), which use edge detection to reveal the dock. The exception is the Pressure Reveal setting: pens use absolute positioning and don't generate the pressure events that mice and touchpads do, so a pen cannot unhide the dock while Pressure Reveal is enabled. If you use a tablet, keep Pressure Reveal disabled.
-
+No. Completely uninstall original Plank before installing Plank Studio to avoid conflicting libraries and D-Bus services.
 </details>
 
 <details markdown="1">
 <summary><strong>Running indicators not showing after login?</strong></summary>
 
-If running indicators (the glow effect showing active applications) don't appear after logging in, this is typically caused by bamfdaemon not starting properly with systemd.
+If the running indicator glow doesn't appear under active applications after logging in, `bamfdaemon` may not be running.
 
-**Solution 1:** Manually add bamfdaemon to your startup applications. Common paths include:
+**Solution 1:** Add `bamfdaemon` to your desktop startup applications (typically `/usr/lib/x86_64-linux-gnu/bamf/bamfdaemon` or `/usr/lib/bamf/bamfdaemon`).
 
-- `/usr/lib/x86_64-linux-gnu/bamf/bamfdaemon`
-- `/usr/lib/bamf/bamfdaemon`
-
-**Solution 2:** Fix the bamf systemd service using a drop-in override. The default service uses `Restart=on-failure`, which causes the service to enter a failed state on logout and not restart on the next login. Create an override to disable the restart behavior:
-
+**Solution 2:** Fix the systemd user service with a drop-in override:
 ```bash
 mkdir -p ~/.config/systemd/user/bamfdaemon.service.d/
 echo -e "[Service]\nRestart=no" > ~/.config/systemd/user/bamfdaemon.service.d/override.conf
 systemctl --user daemon-reload
 ```
-
-This allows dbus activation to cleanly start bamfdaemon on demand, and survives package updates.
-
 </details>
 
 <details markdown="1">
 <summary><strong>Plank sensitivity extends too far in IceWM?</strong></summary>
 
-If you're using IceWM and experiencing issues where clicking near the dock becomes unresponsive in applications (e.g., Firefox's back button doesn't work when too close to the dock), you need to tell IceWM not to manage Plank's dock window.
-
-**Solution:** Add the following line to your IceWM winoptions file (typically `~/.icewm/winoptions`):
-
+If you use IceWM and clicking near the dock becomes unresponsive in adjacent windows, tell IceWM not to manage the dock window. Add this line to `~/.icewm/winoptions`:
 ```
 plank.dock.doNotManage: 1
 ```
-
-This tells IceWM not to manage the dock, which fixes the click sensitivity, while Plank's other windows, such as preferences, keep their frames.
-
-See [issue #124](https://github.com/zquestz/plank-reloaded/issues/124) for more details.
-
 </details>
 
 <details markdown="1">
-<summary><strong>How can application developers show counts or progress indicators on their dock icons?</strong></summary>
+<summary><strong>How can application developers show badges or progress bars on dock icons?</strong></summary>
 
-Plank Reloaded supports the [Unity LauncherAPI specification](https://wiki.ubuntu.com/Unity/LauncherAPI), which allows applications to display notification counts, progress bars, and other indicators on their dock icons.
-
+Plank Studio supports the [Unity LauncherAPI specification](https://wiki.ubuntu.com/Unity/LauncherAPI), enabling applications to display notification counters, progress bars, and urgent state indicators directly on their dock icons.
 </details>
 
-## Third Party Docklets
+---
 
-Plank Reloaded encourages developers to write custom docklets! See [DOCKLETS.md](DOCKLETS.md) for a complete development guide. Here are some existing third-party docklets:
+## Third-Party Docklets
 
-- [Last.fm](https://github.com/zquestz/lastfm-docklet) - A Last.fm docklet to show recent scrobbles.
-- [Picky](https://github.com/zquestz/picky) - An advanced color picker docklet
-- [Quit](https://github.com/androlekss/quit.git) - A docklet to quick access to session actions.
-- [myIP](https://github.com/androlekss/ip-docklet.git) - A docklet to show public IP.
-- [Volmatic](https://github.com/androlekss/volmatic-docklet.git) - A Volmatic docklet for managing system volume.
+Plank Studio maintains 100% API compatibility with Plank docklets. Developers are encouraged to create custom docklets! See [DOCKLETS.md](DOCKLETS.md) for a comprehensive development guide.
 
-## Reporting Bugs
+Popular third-party docklets:
+- [Last.fm](https://github.com/zquestz/lastfm-docklet) – Displays recent Last.fm scrobbles.
+- [Picky](https://github.com/zquestz/picky) – Advanced color picker docklet.
+- [Quit](https://github.com/androlekss/quit.git) – Quick access to session logout and power actions.
+- [myIP](https://github.com/androlekss/ip-docklet.git) – Displays current public IP address.
+- [Volmatic](https://github.com/androlekss/volmatic-docklet.git) – System volume controller docklet.
 
-Please report issues on the [GitHub Issues](https://github.com/zquestz/plank-reloaded/issues) page. Search for existing bugs before reporting new ones.
+---
 
-## Getting Involved
+## Building API Documentation
 
-- Visit the GitHub page: [https://github.com/zquestz/plank-reloaded](https://github.com/zquestz/plank-reloaded)
-- Submit pull requests
-- Report issues
-- Contribute to development
-- Translations: [https://crowdin.com/project/plank-reloaded](https://crowdin.com/project/plank-reloaded)
-- Third party docklets
-- Refer to [HACKING.md](HACKING.md) for development guidelines
+To generate developer API documentation locally:
 
-## API Documentation
-
-This project intends to be API compatible with the original Plank project.
-
-To build the latest documentation:
-
-```
+```bash
 meson setup --prefix=/usr build
 meson configure -D enable-docs=true build
 meson compile -C build
 meson compile -C build all-docs
 ```
 
-Then you can find the docs in the `build/docs` directory.
+The generated documentation will be available in `build/docs`.
 
-## Development Resources
+---
 
-Need more information about Vala?
+## Getting Involved & Reporting Bugs
 
-- [Vala Project](https://wiki.gnome.org/Projects/Vala)
-- [Vala Manual](https://wiki.gnome.org/Projects/Vala/Manual)
-
-Refer to the [HACKING.md](HACKING.md) file for further instructions.
+- **Report Issues**: Report bugs and submit feature requests on [GitHub Issues](https://github.com/zquestz/plank-reloaded/issues).
+- **Contribute**: Pull requests and patches are always welcome. See [HACKING.md](HACKING.md) for developer guidelines.
+- **Translations**: Help translate Plank Studio into your language on [Crowdin](https://crowdin.com/project/plank-reloaded).

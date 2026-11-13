@@ -162,6 +162,24 @@ if get_option('enable-headless-tests')
     timeout: 60,
     is_parallel: false,
   )
+
+  # Shelf logic test (no dock required)
+  test(
+    'shelf-tests',
+    xvfb_run,
+    args: [
+      '--auto-servernum',
+      '--server-args=-screen 0 1280x1024x24',
+      dbus_run.full_path(),
+      shelf_tests_bin.full_path(),
+    ],
+    env: test_env,
+    workdir: meson.current_build_dir(),
+    depends: [clean_test_dir],
+    protocol: 'tap',
+    timeout: 60,
+    is_parallel: false,
+  )
 else
   # Regular tests use the real display, but a private session bus when
   # dbus-run-session is available, so services the dock talks to (like BAMF,
@@ -174,6 +192,8 @@ else
     dock_args = [dock_bin.full_path(), '-n', 'test1']
     dnd_exe = dbus_run
     dnd_args = [dnd_bin.full_path()]
+    shelf_exe = dbus_run
+    shelf_args = [shelf_tests_bin.full_path()]
   else
     tests_exe = tests_bin
     tests_args = []
@@ -181,6 +201,8 @@ else
     dock_args = ['-n', 'test1']
     dnd_exe = dnd_bin
     dnd_args = []
+    shelf_exe = shelf_tests_bin
+    shelf_args = []
   endif
 
   test(
@@ -198,6 +220,17 @@ else
     'dnd-tests',
     dnd_exe,
     args: dnd_args,
+    env: test_env,
+    workdir: meson.current_build_dir(),
+    depends: [clean_test_dir],
+    protocol: 'tap',
+    is_parallel: false,
+  )
+
+  test(
+    'shelf-tests',
+    shelf_exe,
+    args: shelf_args,
     env: test_env,
     workdir: meson.current_build_dir(),
     depends: [clean_test_dir],

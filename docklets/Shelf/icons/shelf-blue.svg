@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Blue Outline of Shelf Tray -->
+  <path d="M 26 36
+           C 20 36 16 40 16 46
+           L 16 92
+           C 16 98 20 102 26 102
+           L 102 102
+           C 108 102 112 98 112 92
+           L 112 46
+           C 112 40 108 36 102 36
+           L 86 36
+           C 84 36 82 38 80 42
+           L 74 58
+           C 72 62 70 64 66 64
+           L 62 64
+           C 58 64 56 62 54 58
+           L 48 42
+           C 46 38 44 36 42 36
+           Z"
+        fill="none"
+        stroke="#3584e4"
+        stroke-width="8"
+        stroke-linejoin="round"
+        stroke-linecap="round"/>
+  <!-- Handle slot -->
+  <rect x="54" y="80" width="20" height="6" rx="3" fill="#3584e4"/>
+</svg>
